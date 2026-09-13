@@ -16,6 +16,7 @@
     "eval": "tsx scripts/eval.ts",
     "verify-models": "tsx scripts/verify-models.ts",
     "smoke": "tsx scripts/smoke-providers.ts",
+    "status": "tsx scripts/status.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
