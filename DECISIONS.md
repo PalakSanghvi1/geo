@@ -340,3 +340,14 @@ Append, don't rewrite. One line each, newest at the bottom.
 - **The magic link is printed to the server console in development and throws in
   production.** Logging a working sign-in token into pm2's logs would hand a session
   to anyone with shell access.
+- **Organizations exist as records before they exist as a boundary.** The
+  better-auth organization plugin creates `organization` / `member` / `invitation`
+  and adds an active-organization column to `session`, but enabling it scopes
+  nothing: no product query filters by organization yet. Membership is recorded,
+  not enforced — the enforcement is section 3.2 of the multi-tenancy plan.
+- **`scripts/org-members.ts` takes addresses as arguments and hardcodes none.**
+  This repo is public and a membership list is personal data.
+- **Adding someone who has never signed in is safe.** They get a `user` row with
+  `emailVerified = 0`; better-auth's magic link matches on email, so their first
+  sign-in lands on that row and keeps the membership. Verified: one user row after
+  sign-in, not two, with the role intact and the address then verified.

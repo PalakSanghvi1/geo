@@ -9,6 +9,7 @@
     "worker": "tsx src/worker/index.ts",
     "migrate": "tsx scripts/migrate.ts",
     "auth-migrate": "tsx scripts/auth-migrate.ts",
+    "org-members": "tsx scripts/org-members.ts",
     "seed": "tsx scripts/seed.ts",
     "run-once": "tsx scripts/run-once.ts",
     "backfill": "tsx scripts/backfill.ts",

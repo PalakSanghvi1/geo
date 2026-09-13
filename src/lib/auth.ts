@@ -19,6 +19,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { betterAuth } from 'better-auth';
 import { magicLink } from 'better-auth/plugins/magic-link';
+import { organization } from 'better-auth/plugins/organization';
 import { nextCookies } from 'better-auth/next-js';
 
 /**
@@ -83,6 +84,13 @@ export const auth = betterAuth({
         );
       },
     }),
+    /**
+     * Organizations are the tenant boundary. Enabling the plugin creates the
+     * organization / member / invitation tables, but it does NOT by itself
+     * scope any of the product's own queries — see docs/multi-tenant-plan.md
+     * section 3.2. Until that lands, membership is recorded but not enforced.
+     */
+    organization(),
     // Must stay last: it copies better-auth's Set-Cookie headers onto the
     // Next.js response.
     nextCookies(),
