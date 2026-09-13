@@ -55,3 +55,12 @@ next-env.d.ts
 # untested and what not to say on camera — useful to the team, not something to ship
 # in a public repo or onto the server.
 docs/demo-script.md
+
+# Internal working documents — kept locally and on the server, not published.
+# `next dev` rewrites AGENTS.md, so ignoring it also stops that churn reappearing
+# in every diff.
+CLAUDE.md
+AGENTS.md
+BUILD_PLAN.md
+DECISIONS.md
+/.private/
