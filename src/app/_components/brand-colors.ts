@@ -16,7 +16,19 @@ export const INK_FAINT = '#9d9c95';
 /** Must track --color-hairline in globals.css; Recharts needs a literal. */
 export const HAIRLINE = 'rgba(11,11,11,0.08)';
 
-/** Brands beyond this many get the muted dot and stay off the chart. */
+/**
+ * How many brands get a hue of their own.
+ *
+ * Five, and not more, because the count is measured rather than chosen: a
+ * ten-hue categorical palette fails the colour checks outright (a brown and a
+ * red land 1.8 ΔE apart under protanopia and 14.6 to full colour vision, below
+ * the readable floor), and eight is worse still. Categorical hues are assigned
+ * in fixed order and never generated to fill a longer list.
+ *
+ * Brands past this point still appear on the chart — see `chartBrands` — drawn
+ * in the muted grey and identified by the label at the end of their line, so
+ * identity never rests on a colour nobody can name.
+ */
 export const MAX_SERIES = 5;
 
 export interface BrandLike {
@@ -58,11 +70,17 @@ export function assignBrandColors(scoreboard: BrandLike[]): Map<string, string> 
 export function chartBrands(
   scoreboard: BrandLike[],
   drawable: (brand: string) => boolean = () => true
-): Array<BrandLike & { color: string }> {
+): Array<BrandLike & { color: string; keyed: boolean }> {
   const colors = assignBrandColors(scoreboard);
   const present = scoreboard.filter((row) => drawable(row.brand));
   const self = present.find((row) => row.isSelf);
-  const others = present.filter((row) => !row.isSelf).slice(0, self ? MAX_SERIES - 1 : MAX_SERIES);
+  const others = present.filter((row) => !row.isSelf);
   const chosen = self ? [self, ...others] : others;
-  return chosen.map((row) => ({ ...row, color: colors.get(row.brand) ?? SERIES_MUTED }));
+
+  return chosen.map((row) => {
+    const color = colors.get(row.brand) ?? SERIES_MUTED;
+    // `keyed` marks the brands with a hue of their own, so the legend can show
+    // which identities colour actually carries.
+    return { ...row, color, keyed: color !== SERIES_MUTED };
+  });
 }

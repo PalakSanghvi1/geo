@@ -364,3 +364,11 @@ Append, don't rewrite. One line each, newest at the bottom.
   label was drawn with a literal line above it. Renamed to `field-label`, in the
   CSS and at all seventeen call sites. Removing the uppercase treatment earlier did
   not touch this, because the line was never in our own CSS.
+- **The chart plots every tracked brand, but only five get a hue.** Ten
+  categorical colours is not a taste call, it is measurable and it fails: a brown
+  and a red land 1.8 ΔE apart under protanopia and 14.6 to full colour vision,
+  below the readable floor. Eight is worse. So all ten brands draw, the top five
+  in the fixed palette and the rest in the muted grey, with every line carrying a
+  direct label at its right end. Identity rests on the label, not on a colour
+  nobody can name — which is also why the existing five-colour palette is legal
+  at all: it fails the strict all-pairs check on its own.
