@@ -14,11 +14,18 @@ export const PROVIDER_LABEL: Record<ProviderId, string> = {
   gemini: 'Gemini',
 };
 
-/** "vs the 7-day average" / "vs the previous day" / "" when there is nothing to compare. */
-export function deltaWindowPhrase(days: number): string {
+/**
+ * "vs the 7-day average", plus a warning when that average is fabricated.
+ *
+ * `delta7` subtracts the mean of the prior run days from the latest one. When every
+ * one of those prior days is illustrative, the result is a measured number minus an
+ * invented baseline: still the defined metric, but not a change in how the models
+ * answer, and nothing on screen said so.
+ */
+export function deltaWindowPhrase(days: number, baselineIsIllustrative = false): string {
   if (days <= 0) return 'no prior day to compare';
-  if (days === 1) return 'vs the previous day';
-  return `vs the ${days}-day average`;
+  const window = days === 1 ? 'vs the previous day' : `vs the ${days}-day average`;
+  return baselineIsIllustrative ? `${window} (illustrative baseline)` : window;
 }
 
 /** Compact column header: "Δ 7d". */
@@ -43,31 +50,31 @@ export function providerListPhrase(providers: ProviderId[]): string {
  * outcome than saying so upfront.
  */
 export function datasetCaption(dataset: DatasetShape): string {
-  const { runDays, realDays, syntheticDays, providersWithRealData } = dataset;
+  const { runDays, measuredDays, illustrativeDays, providersWithMeasuredData } = dataset;
   if (runDays === 0) return 'No runs collected yet.';
 
   // Credit only providers that actually returned something. A provider present purely
   // through fabricated rows has collected nothing and must not be named here.
-  if (realDays === 0) {
+  if (measuredDays === 0) {
     // Every point on screen is fabricated. Say exactly that — there is no real
     // collection to credit, and naming providers here would invent one.
     return `${runDays} run day${runDays === 1 ? '' : 's'} plotted · all illustrative placeholder history, not measurements.`;
   }
 
-  const providers = providerListPhrase(providersWithRealData);
-  const collected = `${realDays} day${realDays === 1 ? '' : 's'} collected from ${providers}`;
+  const providers = providerListPhrase(providersWithMeasuredData);
+  const collected = `${measuredDays} day${measuredDays === 1 ? '' : 's'} collected from ${providers}`;
 
-  if (syntheticDays === 0) {
+  if (illustrativeDays === 0) {
     return `${runDays} run day${runDays === 1 ? '' : 's'} · ${collected}.`;
   }
 
   return (
     `${runDays} run days plotted · ${collected} · ` +
-    `the remaining ${syntheticDays} are illustrative placeholder history, not measurements.`
+    `the remaining ${illustrativeDays} are illustrative placeholder history, not measurements.`
   );
 }
 
 /** True when enough of the window is fabricated that the chart should carry a badge. */
-export function isMostlySynthetic(dataset: DatasetShape): boolean {
-  return dataset.runDays > 0 && dataset.syntheticDays > dataset.realDays;
+export function isMostlyIllustrative(dataset: DatasetShape): boolean {
+  return dataset.runDays > 0 && dataset.illustrativeDays > dataset.measuredDays;
 }

@@ -158,21 +158,12 @@ export async function resolveSuggestion(
 }
 
 /**
- * BUILD_PLAN section 7 puts push-to-linear on this endpoint, but the route
- * currently accepts only 'approve' | 'dismiss' — the Linear side is Workstream
- * C's `createIssue()`, which has no HTTP route yet. Until it does, this fails,
- * and the page says why rather than implying the issue was created.
+ * Files a suggestion in Linear. The route distinguishes its own failures — 503 when
+ * the server has no Linear key, 502 when Linear rejected the call, 409 when the row
+ * was already filed — so the message is surfaced as-is rather than rewritten here.
+ * This used to rewrite any error mentioning "action" into "not wired up yet", which
+ * stopped being true once the endpoint landed.
  */
 export async function pushSuggestionToLinear(id: number): Promise<SuggestionActionResult> {
-  try {
-    return await postJson<SuggestionActionResult>('/suggestions', { id, action: 'push-to-linear' });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (/action/i.test(message)) {
-      throw new Error(
-        'Linear push is not wired up yet — /api/suggestions accepts approve and dismiss only.'
-      );
-    }
-    throw err;
-  }
+  return postJson<SuggestionActionResult>('/suggestions', { id, action: 'push-to-linear' });
 }

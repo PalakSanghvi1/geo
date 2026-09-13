@@ -22,6 +22,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Client, isFullPage } from '@notionhq/client';
 import type { BlockObjectRequest } from '@notionhq/client';
 import { PROJECT, PUBLIC_BASE_URL, REASONING_MODEL } from '../lib/config';
+import { deltaWindowPhrase } from '../lib/labels';
 import { getOverview, getSignals, getSources, recentDates } from '../lib/metrics';
 import type { DigestSignal } from '../lib/metrics';
 import type { OverviewResponse, ScoreboardRow, SourceRow } from '../lib/types';
@@ -434,7 +435,10 @@ function headlineCallout(week: WeekAggregates): BlockObjectRequest {
 
   const rank = week.overview.scoreboard.findIndex((r) => r.isSelf) + 1;
   const detail =
-    ` ${signedPts(self.delta7)} WoW\n` +
+    ` ${signedPts(self.delta7)} ${deltaWindowPhrase(
+      week.overview.dataset.deltaWindowDays,
+      week.overview.dataset.deltaBaselineIsIllustrative
+    )}\n` +
     `Rank ${rank || '—'} of ${week.overview.scoreboard.length} tracked brands · ` +
     `avg position ${positionText(self.avgPosition)} · ` +
     `sentiment ${sentimentText(self.sentiment)} · ` +
@@ -513,7 +517,8 @@ export function buildReportBlocks(week: WeekAggregates, takeaways: string[]): Bl
     italicParagraph(
       dates.length > 0
         ? `Window: ${dates.length} run day(s), ${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])}. ` +
-          'WoW compares the latest run day against the mean of the seven run days before it. ' +
+          `The delta compares the latest run day against the mean of the ${week.overview.dataset.deltaWindowDays} run day(s) before it` +
+          `${week.overview.dataset.deltaBaselineIsIllustrative ? ', none of which were measured — that baseline is illustrative placeholder history' : ''}. ` +
           'All figures come from the same metrics module as the dashboard and the Slack digest.'
         : 'No runs with collected answers yet, so this report has no numbers to show.'
     )

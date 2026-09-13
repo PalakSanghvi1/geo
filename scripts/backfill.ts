@@ -20,6 +20,7 @@
  * passage of time. Never present backfilled dates as historical observations.
  */
 import '../src/lib/env';
+import { ANSWER_MODELS } from '../src/lib/config';
 import { executeRun, runExistsFor } from '../src/pipeline/runner';
 import type { ProviderId } from '../src/lib/types';
 
@@ -34,14 +35,30 @@ function dateOffset(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * `--providers` is user input, so it is checked rather than cast. A typo used to be
+ * cast straight to ProviderId[], planned jobs nothing could execute, and left the run
+ * counting calls it never made.
+ */
+function parseProviders(raw: string | undefined): ProviderId[] | undefined {
+  if (!raw) return undefined;
+  const names = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  const configured = ANSWER_MODELS.map((m) => m.provider);
+  const unknown = names.filter((n) => !configured.includes(n as ProviderId));
+  if (unknown.length > 0) {
+    console.error(
+      `unknown provider(s): ${unknown.join(', ')}. Configured: ${configured.join(', ')}`
+    );
+    process.exit(1);
+  }
+  return names as ProviderId[];
+}
+
 async function main() {
   const days = Number(flag('days') ?? process.env.BACKFILL_DAYS ?? 7);
   const limit = flag('limit') ? Number(flag('limit')) : undefined;
   const force = process.argv.includes('--force');
-  const providers = flag('providers')
-    ?.split(',')
-    .map((p) => p.trim())
-    .filter(Boolean) as ProviderId[] | undefined;
+  const providers = parseProviders(flag('providers'));
 
   // Oldest first, then today as a normal scheduled run.
   const plan = [

@@ -12,6 +12,7 @@ export type ProviderId = 'anthropic' | 'openai' | 'gemini';
  * by accident. Everything else is a real provider response.
  */
 export type RunTrigger = 'scheduled' | 'manual' | 'backfill' | 'synthetic';
+// Which of these count as measurements is decided in one place: src/lib/provenance.ts.
 export type RunStatus = 'running' | 'complete' | 'partial' | 'failed';
 export type AnswerStatus = 'ok' | 'error';
 export type SuggestionKind = 'query' | 'competitor';
@@ -169,19 +170,31 @@ export interface DatasetShape {
   runDays: number;
   /** How many days `delta7` actually averaged over — 7 at most, fewer if that is all there is. */
   deltaWindowDays: number;
+  /**
+   * True when no day in that prior window was measured, so `delta7` is a real day
+   * minus a fabricated baseline. The number is still the defined metric; it just
+   * cannot be read as a change in how the models answer, and the surfaces say so.
+   */
+  deltaBaselineIsIllustrative: boolean;
   /** Providers with at least one scored answer in the window, fabricated included — this drives the filter tabs. */
   providersWithData: ProviderId[];
   /**
-   * Providers that actually returned a real answer. Distinct from the above because a
-   * provider can be present entirely through synthetic rows, and crediting it with
+   * Providers that returned an answer on a measured day. Distinct from the above because
+   * a provider can be present entirely through illustrative rows, and crediting it with
    * collection it never performed is precisely the false claim this type exists to stop.
    */
-  providersWithRealData: ProviderId[];
-  /** Days whose runs were collected from real providers. */
-  realDays: number;
-  /** Days that are fabricated (`trigger = 'synthetic'`) and must never be read as measurement. */
-  syntheticDays: number;
-  /** Earliest date collected live rather than backfilled or fabricated. */
+  providersWithMeasuredData: ProviderId[];
+  /**
+   * Days that were measured: a run whose trigger is `scheduled` or `manual`, meaning
+   * the answers were collected on the date they are filed under. See
+   * `src/lib/provenance.ts` — `backfill` counts as illustrative alongside `synthetic`,
+   * because replaying real answers onto a past date still makes that date's number
+   * something other than an observation of it.
+   */
+  measuredDays: number;
+  /** Days carried by fabricated or date-shifted runs, which must never be read as measurement. */
+  illustrativeDays: number;
+  /** Earliest measured date in the window; the chart marks it as the boundary. */
   firstLiveDate: string | null;
 }
 

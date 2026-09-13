@@ -59,9 +59,15 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
 
   const self = data.self;
   if (!self) {
+    // Two different conditions used to share one message. An empty window is the
+    // ordinary case when a filter selects a provider that collected nothing, and
+    // telling that reader to seed the brands table sends them after a problem that
+    // does not exist.
     return (
       <Card className="px-5 py-6 text-sm text-ink-muted">
-        No brand is marked as self yet — seed the brands table to populate the headline stats.
+        {data.dataset.runDays === 0
+          ? 'No answers in this window — try a different model or date range.'
+          : 'No brand is marked as self yet — seed the brands table to populate the headline stats.'}
       </Card>
     );
   }
@@ -69,8 +75,10 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
   const rank = data.scoreboard.findIndex((row) => row.isSelf) + 1;
   const { ok, total } = self.coverageToday;
   const failed = total - ok;
-  // The window the delta actually averaged over, which is not always seven days.
+  // The window the delta actually averaged over, which is not always seven days —
+  // and whether anything in it was measured.
   const deltaDays = data.dataset.deltaWindowDays;
+  const deltaPhrase = deltaWindowPhrase(deltaDays, data.dataset.deltaBaselineIsIllustrative);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -81,10 +89,10 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
           // With no prior day the phrase stands alone: a signed change against
           // nothing is not a change worth printing.
           deltaDays <= 0 ? (
-            deltaWindowPhrase(deltaDays)
+            deltaPhrase
           ) : (
             <>
-              <Delta value={self.delta7} suffix=" pts" /> {deltaWindowPhrase(deltaDays)}
+              <Delta value={self.delta7} suffix=" pts" /> {deltaPhrase}
             </>
           )
         }

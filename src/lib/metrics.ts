@@ -17,6 +17,7 @@
 import { all, get, parseJson } from './db';
 import { ALERT_THRESHOLD_PTS, NEW_COMPETITOR_MIN_ANSWERS, SEED_BRANDS } from './config';
 import { deltaWindowPhrase } from './labels';
+import { measuredRunsClause } from './provenance';
 import type {
   Citation,
   CoveragePoint,
@@ -36,15 +37,27 @@ function providerClause(provider: ProviderFilter, params: unknown[]): string {
   return ' AND a.provider = ?';
 }
 
-/** The most recent N run dates that have at least one answer, oldest first. */
-export function recentDates(days: number): string[] {
+/**
+ * The most recent N run dates that have at least one scored answer, oldest first.
+ *
+ * The provider filter belongs here, not only downstream. Picking the window from
+ * every provider's dates and then filtering the counts gives a day whose total is
+ * zero, and `visibilityOn` reports zero for that — so a provider with no answers
+ * rendered a full chart of flat 0% lines and a scoreboard of 0% rows rather than an
+ * empty state. Selecting the dates the provider actually has makes "nothing here"
+ * an empty window, which every caller already handles.
+ */
+export function recentDates(days: number, provider: ProviderFilter = 'all'): string[] {
+  const params: unknown[] = [];
+  const clause = providerClause(provider, params);
   const rows = all<{ run_date: string }>(
     `SELECT DISTINCT r.run_date
        FROM runs r
        JOIN answers a ON a.run_id = r.id
+      WHERE a.status = 'ok'${clause}
       ORDER BY r.run_date DESC
       LIMIT ?`,
-    [days]
+    [...params, days]
   );
   return rows.map((r) => r.run_date).reverse();
 }
@@ -130,7 +143,22 @@ function round(n: number, places = 1): number {
 }
 
 export function getOverview(days = 14, provider: ProviderFilter = 'all'): OverviewResponse {
-  const dates = recentDates(days);
+  const dates = recentDates(days, provider);
+
+  // Nothing was collected under this filter. Returning a scoreboard here would still
+  // carry the self brand at 0% — `brandNames` always includes it — and the stat cards
+  // would read "Visibility 0%" for a provider that was never asked. 0% is a
+  // measurement; the honest answer is that there isn't one.
+  if (dates.length === 0) {
+    return {
+      series: [],
+      scoreboard: [],
+      coverage: [],
+      dataset: describeDataset([], [], provider),
+      self: null,
+    };
+  }
+
   const totals = dailyTotals(dates, provider);
   const rows = brandDays(dates, provider);
 
@@ -198,7 +226,7 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
     series,
     scoreboard,
     coverage,
-    dataset: describeDataset(dates, priorWindow.length, provider),
+    dataset: describeDataset(dates, priorWindow, provider),
     self: selfRow
       ? {
           brand: selfRow.brand,
@@ -218,44 +246,49 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
 /**
  * Describe the dataset so the UI can state what it has.
  *
- * Provenance is read from `runs.trigger`: 'synthetic' rows are fabricated, everything
- * else came from a provider. A date counts as synthetic only if it has NO real run, so
- * a real run landing on a fabricated date reclassifies that day as real — which is
- * exactly what should happen as genuine collection replaces filler.
+ * Provenance is read from `runs.trigger` through `src/lib/provenance.ts`: `synthetic`
+ * and `backfill` are illustrative, `scheduled` and `manual` are measured. A date counts
+ * as illustrative only if it has NO measured run, so a real run landing on a filled date
+ * reclassifies that day as measured — which is exactly what should happen as genuine
+ * collection replaces filler.
  */
 function describeDataset(
   dates: string[],
-  deltaWindowDays: number,
+  priorWindow: string[],
   provider: ProviderFilter
 ): DatasetShape {
   if (dates.length === 0) {
     return {
       runDays: 0,
       deltaWindowDays: 0,
+      deltaBaselineIsIllustrative: false,
       providersWithData: [],
-      providersWithRealData: [],
-      realDays: 0,
-      syntheticDays: 0,
+      providersWithMeasuredData: [],
+      measuredDays: 0,
+      illustrativeDays: 0,
       firstLiveDate: null,
     };
   }
 
   const placeholders = dates.map(() => '?').join(',');
 
-  // realDays is counted from ANSWERS, not runs, and honours the provider filter.
+  // measuredDays is counted from ANSWERS, not runs, and honours the provider filter.
   // Counting runs would describe a dataset the chart is not showing: with Gemini
   // selected, every plotted point is fabricated, yet a run-based count would still
   // report the two days Claude and GPT collected. The caption must describe the
   // series actually on screen.
   const realParams: unknown[] = [...dates];
   const realClause = providerClause(provider, realParams);
-  const realDays = all<{ run_date: string }>(
-    `SELECT DISTINCT r.run_date AS run_date
-       FROM answers a JOIN runs r ON r.id = a.run_id
-      WHERE a.status = 'ok' AND r.trigger != 'synthetic'
-        AND r.run_date IN (${placeholders})${realClause}`,
-    realParams
-  ).length;
+  const measuredDates = new Set(
+    all<{ run_date: string }>(
+      `SELECT DISTINCT r.run_date AS run_date
+         FROM answers a JOIN runs r ON r.id = a.run_id
+        WHERE a.status = 'ok' AND ${measuredRunsClause()}
+          AND r.run_date IN (${placeholders})${realClause}`,
+      realParams
+    ).map((r) => r.run_date)
+  );
+  const measuredDays = measuredDates.size;
 
   // Tabs are built from this, so it deliberately ignores the current filter —
   // otherwise selecting one provider would collapse the tab row to that provider.
@@ -268,10 +301,10 @@ function describeDataset(
 
   const realProviderParams: unknown[] = [...dates];
   const realProviderClause = providerClause(provider, realProviderParams);
-  const providersWithRealData = all<{ provider: string }>(
+  const providersWithMeasuredData = all<{ provider: string }>(
     `SELECT DISTINCT a.provider AS provider
        FROM answers a JOIN runs r ON r.id = a.run_id
-      WHERE a.status = 'ok' AND r.trigger != 'synthetic'
+      WHERE a.status = 'ok' AND ${measuredRunsClause()}
         AND r.run_date IN (${placeholders})${realProviderClause}`,
     realProviderParams
   ).map((r) => r.provider as ProviderId);
@@ -282,22 +315,24 @@ function describeDataset(
   const ORDER: ProviderId[] = ['anthropic', 'openai', 'gemini'];
   const byCanonical = (a: ProviderId, b: ProviderId) => ORDER.indexOf(a) - ORDER.indexOf(b);
   providersWithData.sort(byCanonical);
-  providersWithRealData.sort(byCanonical);
+  providersWithMeasuredData.sort(byCanonical);
 
-  // 'scheduled' and 'manual' are collected live; 'backfill' is real but date-assigned.
   const live = get<{ run_date: string }>(
-    `SELECT MIN(run_date) AS run_date FROM runs
-      WHERE run_date IN (${placeholders}) AND trigger IN ('scheduled', 'manual')`,
+    `SELECT MIN(run_date) AS run_date FROM runs r
+      WHERE r.run_date IN (${placeholders}) AND ${measuredRunsClause()}`,
     dates
   );
 
   return {
     runDays: dates.length,
-    deltaWindowDays,
+    deltaWindowDays: priorWindow.length,
+    // The baseline is illustrative when not one day behind the latest was measured.
+    deltaBaselineIsIllustrative:
+      priorWindow.length > 0 && !priorWindow.some((d) => measuredDates.has(d)),
     providersWithData,
-    providersWithRealData,
-    realDays,
-    syntheticDays: dates.length - realDays,
+    providersWithMeasuredData,
+    measuredDays,
+    illustrativeDays: dates.length - measuredDays,
     firstLiveDate: live?.run_date ?? null,
   };
 }
@@ -322,7 +357,7 @@ function domainOf(url: string): string | null {
 }
 
 export function getSources(days = 14, provider: ProviderFilter = 'all'): SourceRow[] {
-  const dates = recentDates(days);
+  const dates = recentDates(days, provider);
   if (dates.length === 0) return [];
   const placeholders = dates.map(() => '?').join(',');
   const params: unknown[] = [...dates];
@@ -404,7 +439,7 @@ export function getSignals(days = 14): DigestSignal[] {
       kind: 'delta',
       text:
         `${self.brand} visibility is ${dir} ${Math.abs(self.delta7).toFixed(1)} pts ` +
-        `${deltaWindowPhrase(overview.dataset.deltaWindowDays)} (now ${self.visibility.toFixed(1)}%).`,
+        `${deltaWindowPhrase(overview.dataset.deltaWindowDays, overview.dataset.deltaBaselineIsIllustrative)} (now ${self.visibility.toFixed(1)}%).`,
     });
   }
 
@@ -416,7 +451,9 @@ export function getSignals(days = 14): DigestSignal[] {
     if (gap <= 3) {
       signals.push({
         kind: 'overtake',
-        text: `${ahead.brand} is only ${gap.toFixed(1)} pts ahead — closest it has been this window.`,
+        // Only the current gap is computed here. "Closest it has been this window"
+        // would be a claim about history that nothing in this function measures.
+        text: `${ahead.brand} is ${gap.toFixed(1)} pts ahead of you on the latest run day.`,
       });
     }
   }
@@ -425,7 +462,7 @@ export function getSignals(days = 14): DigestSignal[] {
     if (round(self.visibility - behind.visibility) <= 3) {
       signals.push({
         kind: 'overtake',
-        text: `${behind.brand} is closing in — ${round(self.visibility - behind.visibility).toFixed(1)} pts behind you.`,
+        text: `${behind.brand} is ${round(self.visibility - behind.visibility).toFixed(1)} pts behind you on the latest run day.`,
       });
     }
   }

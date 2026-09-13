@@ -21,6 +21,7 @@ import { PROJECT, PUBLIC_BASE_URL } from '../lib/config';
 import { get, run } from '../lib/db';
 import { deltaWindowPhrase } from '../lib/labels';
 import { getOverview, getSignals, recentDates } from '../lib/metrics';
+import { runDateToday } from '../lib/provenance';
 import type { ScoreboardRow } from '../lib/types';
 import { log, logError } from '../worker/log';
 
@@ -73,12 +74,6 @@ export function queueRun(requestedBy: string, note?: string): number {
 /* Message bodies                                                      */
 /* ------------------------------------------------------------------ */
 
-/** Today in the local timezone as YYYY-MM-DD, matching `runs.run_date`. */
-function today(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
-
 function pct(n: number): string {
   return `${n.toFixed(1)}%`;
 }
@@ -101,7 +96,7 @@ export function buildStatusLine(): string {
     coverage.total > 0 ? `${coverage.ok}/${coverage.total} answers collected` : 'no answers today';
   return (
     `*${self.brand}* — visibility ${pct(self.visibility)} ` +
-    `(${signed(self.delta7)} ${deltaWindowPhrase(overview.dataset.deltaWindowDays)}), ` +
+    `(${signed(self.delta7)} ${deltaWindowPhrase(overview.dataset.deltaWindowDays, overview.dataset.deltaBaselineIsIllustrative)}), ` +
     `rank ${rank || '—'} of ${overview.scoreboard.length}, ` +
     `avg position ${self.avgPosition === null ? '—' : self.avgPosition.toFixed(1)}, ` +
     `sentiment ${self.sentiment > 0 ? '+' : ''}${self.sentiment}. ${coverageText}.`
@@ -183,7 +178,7 @@ function context(text: string): KnownBlock {
 
 function buildDigestBlocks(date?: string): KnownBlock[] {
   const latest = recentDates(1)[0] ?? null;
-  const target = date ?? latest ?? today();
+  const target = date ?? latest ?? runDateToday();
 
   const overview = getOverview(14, 'all');
   const self = overview.self;
@@ -281,7 +276,7 @@ export function buildDigest(date?: string): KnownBlock[] {
 /** Plain-text notification fallback for the digest (used as Slack's `text`). */
 export function buildDigestText(date?: string): string {
   try {
-    const target = date ?? recentDates(1)[0] ?? today();
+    const target = date ?? recentDates(1)[0] ?? runDateToday();
     return `GEO daily digest — ${target}: ${buildStatusLine()}`;
   } catch {
     return 'GEO daily digest';

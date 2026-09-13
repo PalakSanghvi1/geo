@@ -46,7 +46,18 @@ export async function executeRun(
   opts: RunOptions = {}
 ): Promise<RunSummary> {
   const started = Date.now();
-  const providers = opts.providers ?? ANSWER_MODELS.map((m) => m.provider);
+  const configured = ANSWER_MODELS.map((m) => m.provider);
+
+  // An unconfigured provider used to survive all the way into `runJob`, where the
+  // error path dereferenced a model choice that was never found. That TypeError was
+  // swallowed by the pool, so the call was neither recorded as an answer nor counted
+  // — the run finalized `complete` with `ok + failed` short of `total_calls`. Drop
+  // them here instead, before a single job is planned.
+  const requested = opts.providers ?? configured;
+  const providers = requested.filter((p) => configured.includes(p));
+  for (const unknown of requested.filter((p) => !configured.includes(p))) {
+    console.warn(`  [run] ignoring unknown provider "${unknown}" — not in ANSWER_MODELS`);
+  }
 
   const queries = all<{ id: number; text: string }>(
     `SELECT id, text FROM queries WHERE active = 1 ORDER BY id` +
@@ -132,7 +143,11 @@ async function runJob(
   brands: Brand[],
   brandIdByName: Map<string, number>
 ): Promise<boolean> {
-  const choice = ANSWER_MODELS.find((m) => m.provider === job.provider)!;
+  // `executeRun` filters to configured providers, so this is always found; the
+  // fallback keeps the error path from throwing if that ever stops being true,
+  // because a throw here loses the row this function exists to write.
+  const choice = ANSWER_MODELS.find((m) => m.provider === job.provider);
+  const attemptedModel = choice?.primary ?? job.provider;
 
   let answerId: number;
   let text: string;
@@ -160,7 +175,7 @@ async function runJob(
     exec(
       `INSERT INTO answers (run_id, query_id, provider, model_id, status, error)
        VALUES (?, ?, ?, ?, 'error', ?)`,
-      [runId, job.queryId, job.provider, choice.primary, truncate(messageOf(err), 500)]
+      [runId, job.queryId, job.provider, attemptedModel, truncate(messageOf(err), 500)]
     );
     return false;
   }
@@ -241,7 +256,19 @@ function truncate(s: string, n: number): string {
   return s.length <= n ? s : `${s.slice(0, n)}…`;
 }
 
-/** True when a run for this date already exists — guards double backfills. */
+/**
+ * True when this date already carries a run that would be duplicated by collecting it
+ * again — a guard against double backfills.
+ *
+ * Only `synthetic` rows are ignored, not everything `provenance.ts` calls illustrative:
+ * an existing backfill on this date SHOULD block a second one, which is the whole point
+ * of the guard. Fabricated filler should not. Once the generator had written 90 days,
+ * every date matched and `npm run backfill` silently skipped the lot — placeholder
+ * history was blocking the collection meant to replace it.
+ */
 export function runExistsFor(runDate: string): boolean {
-  return !!get<{ id: number }>(`SELECT id FROM runs WHERE run_date = ? LIMIT 1`, [runDate]);
+  return !!get<{ id: number }>(
+    `SELECT id FROM runs r WHERE r.run_date = ? AND r.trigger != 'synthetic' LIMIT 1`,
+    [runDate]
+  );
 }

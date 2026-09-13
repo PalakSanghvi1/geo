@@ -23,29 +23,11 @@ import { notifyRunComplete, notifyRunFailed, queueRun, startSlack, stopSlack } f
 import { runLinearScan } from '../integrations/linear';
 import { publishWeeklyReport } from '../integrations/notion';
 import { executeRun, type RunSummary } from '../pipeline/runner';
+import { lastWeekEndingDate, runDateToday } from '../lib/provenance';
 import { log, logError } from './log';
 
 const POLL_INTERVAL_MS = 5_000;
 
-/**
- * The most recent Sunday strictly before today, as YYYY-MM-DD. The weekly report
- * runs on a Monday and covers the week that just ended, so it must not label
- * itself with the day it happens to run.
- */
-function lastWeekEnding(): string {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  // getUTCDay(): 0 = Sunday. Step back at least one day, then to that Sunday.
-  const daysBack = local.getUTCDay() === 0 ? 7 : local.getUTCDay();
-  local.setUTCDate(local.getUTCDate() - daysBack);
-  return local.toISOString().slice(0, 10);
-}
-
-/** Today in the local timezone as YYYY-MM-DD, matching `runs.run_date`. */
-function today(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
 
 /** One run at a time: 135 answer calls already saturate the provider budget. */
 let running = false;
@@ -56,8 +38,18 @@ let shuttingDown = false;
 /* ------------------------------------------------------------------ */
 
 /**
- * Claim the oldest pending request inside a transaction, so a second worker (or
- * a retry after a crash) can never pick up the same row twice.
+ * Claim the oldest pending request, so a second worker — or this one after a
+ * restart — can never pick up the same row twice.
+ *
+ * Two details carry that guarantee, and the plain `db.transaction()` this used to
+ * be had neither:
+ *
+ *  - `.immediate()` takes the write lock at BEGIN. A deferred transaction only
+ *    takes a read lock for the SELECT, so two workers could both read the same
+ *    pending row; with `busy_timeout = 5000` the loser then waits out the winner's
+ *    commit and writes its own stale claim, and the request runs twice.
+ *  - The UPDATE is conditional on the row still being pending and the claim is
+ *    only honoured if it changed a row. Belt and braces, and it costs nothing.
  */
 function claimNextRequest(): RunRequest | null {
   const db = getDb();
@@ -72,10 +64,12 @@ function claimNextRequest(): RunRequest | null {
       )
       .get() as RunRequest | undefined;
     if (!row) return null;
-    db.prepare(`UPDATE run_requests SET status = 'picked_up' WHERE id = ?`).run(row.id);
-    return row;
+    const claimed = db
+      .prepare(`UPDATE run_requests SET status = 'picked_up' WHERE id = ? AND status = 'pending'`)
+      .run(row.id);
+    return claimed.changes === 1 ? row : null;
   });
-  return claim();
+  return claim.immediate();
 }
 
 /** `cron` requests are the scheduled daily run; everything else is manual. */
@@ -84,7 +78,7 @@ function triggerFor(requestedBy: string): RunTrigger {
 }
 
 async function processRequest(request: RunRequest): Promise<void> {
-  const runDate = today();
+  const runDate = runDateToday();
   const trigger = triggerFor(request.requested_by);
   log(
     'poller',
@@ -167,7 +161,7 @@ function scheduleJobs(): void {
   });
 
   safeSchedule('0 10 * * 1', 'weekly Notion report', async () => {
-    const weekEnding = lastWeekEnding();
+    const weekEnding = lastWeekEndingDate();
     const url = await publishWeeklyReport(weekEnding);
     log(
       'cron',

@@ -18,6 +18,7 @@ import {
 } from '@/app/_components/ui';
 import { triggerRun, useRuns } from '@/app/_lib/fetcher';
 import { ANSWER_MODELS } from '@/lib/config';
+import { isFabricated } from '@/lib/provenance';
 import type { Run, RunRow, RunStatus } from '@/lib/types';
 
 const CELL = 'px-5 py-3';
@@ -117,7 +118,7 @@ function providerHealth(run: RunRow | undefined): ProviderHealth[] {
 
 /** Newest run that was genuinely collected — never a fabricated one. */
 function newestRealRun(runs: RunRow[]): RunRow | undefined {
-  return runs.find((r) => r.trigger !== 'synthetic' && r.total_calls > 0);
+  return runs.find((r) => !isFabricated(r.trigger) && r.total_calls > 0);
 }
 
 function HealthCard({ health }: { health: ProviderHealth }) {
@@ -275,9 +276,20 @@ export default function RunsPage() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [queueing, setQueueing] = useState(false);
 
-  // Newest first, regardless of the order the API happens to return.
-  const runs = useMemo(() => [...(data ?? [])].sort((a, b) => b.id - a.id), [data]);
-  // The in-flight run has no counts yet, and a synthetic one has no provider to be
+  // Newest DATE first, then newest id within a date.
+  //
+  // Sorting on id alone ordered the table by insertion, and the illustrative history
+  // was generated after the real runs were collected — so rows dated months ago
+  // carried the highest ids and sorted above today's run. The table read oldest-first
+  // on exactly the screen that exists to say when things happened.
+  const runs = useMemo(
+    () =>
+      [...(data ?? [])].sort((a, b) =>
+        a.run_date === b.run_date ? b.id - a.id : b.run_date < a.run_date ? -1 : 1
+      ),
+    [data]
+  );
+  // The in-flight run has no counts yet, and an illustrative one has no provider to be
   // healthy about — report the newest run that was genuinely collected.
   const health = useMemo(
     () => providerHealth(newestRealRun(runs)),

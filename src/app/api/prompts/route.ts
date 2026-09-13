@@ -15,6 +15,7 @@
  */
 import { all, get } from '@/lib/db';
 import type { PromptRow, ProviderId } from '@/lib/types';
+import { measuredRunsClause } from '@/lib/provenance';
 import { asProviderId, fail, ok } from '../_lib/http';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,11 @@ export async function GET() {
       }
     }
 
-    /* --- top brands per query, across every ok answer --------------------- */
+    /* --- top brands per query, over measured answers only ----------------- */
+    // This aggregated every ok answer with no provenance filter, so on a database
+    // carrying months of illustrative history the list was decided by generated
+    // mentions — and sat in the same row as `selfVisibility`, which is computed on
+    // the latest day alone. One row, two provenances, no way to tell them apart.
     const topBrands = new Map<number, string[]>();
     {
       const rows = all<{ query_id: number; brand: string; mentions: number }>(
@@ -81,8 +86,9 @@ export async function GET() {
                 COUNT(*) AS mentions
            FROM mentions m
            JOIN answers a ON a.id = m.answer_id
+           JOIN runs r ON r.id = a.run_id
            JOIN brands b ON b.id = m.brand_id
-          WHERE a.status = 'ok'
+          WHERE a.status = 'ok' AND ${measuredRunsClause()}
           GROUP BY a.query_id, b.id
           ORDER BY a.query_id ASC, mentions DESC, b.name ASC`
       );

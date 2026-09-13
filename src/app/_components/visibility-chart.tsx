@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { datasetCaption, isMostlySynthetic } from '@/lib/labels';
+import { datasetCaption, isMostlyIllustrative } from '@/lib/labels';
 import type { DatasetShape, ScoreboardRow, SeriesPoint } from '@/lib/types';
 import { HAIRLINE, INK, INK_FAINT, INK_MUTED, chartBrands } from './brand-colors';
 import { Badge, Card, CardTitle, Skeleton, cx } from './ui';
@@ -121,7 +121,7 @@ export function VisibilityChart({
   }, [rows]);
 
   const caption = dataset ? datasetCaption(dataset) : null;
-  const illustrative = dataset ? isMostlySynthetic(dataset) : false;
+  const illustrative = dataset ? isMostlyIllustrative(dataset) : false;
 
   const toggle = (brand: string) =>
     setHidden((prev) => {
