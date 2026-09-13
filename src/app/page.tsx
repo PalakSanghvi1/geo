@@ -1,19 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PROVIDER_LABEL } from '@/lib/labels';
+import type { ProviderId } from '@/lib/types';
 import { PageHeader, RangeSelect, Segmented } from './_components/filters';
 import { Scoreboard } from './_components/scoreboard';
 import { StatRow } from './_components/stat-cards';
 import { Card, ErrorBanner, ErrorState } from './_components/ui';
 import { VisibilityChart } from './_components/visibility-chart';
-import { useOverview, useRuns, type ProviderParam } from './_lib/fetcher';
+import { useOverview, type ProviderParam } from './_lib/fetcher';
 
-const PROVIDERS: Array<{ value: ProviderParam; label: string }> = [
-  { value: 'all', label: 'All models' },
-  { value: 'anthropic', label: 'Claude' },
-  { value: 'openai', label: 'GPT' },
-  { value: 'gemini', label: 'Gemini' },
-];
+const ALL_MODELS = { value: 'all' as ProviderParam, label: 'All models' };
 
 const RANGES = [
   { value: 7, label: 'Last 7 days' },
@@ -25,22 +22,45 @@ export default function OverviewPage() {
   const [days, setDays] = useState(14);
 
   const overview = useOverview(days, provider);
-  const runs = useRuns();
+  /**
+   * Unfiltered companion fetch, read only for the shape of the dataset. Deriving
+   * the model tabs from the *filtered* response would collapse the tab row to the
+   * one provider already selected, with no way back.
+   */
+  const baseline = useOverview(days, 'all');
 
   /**
-   * Backfilled runs carry simulated dates, so the chart marks where genuine
-   * daily collection starts. Derived from run triggers rather than hardcoded —
-   * the boundary moves on its own as live runs accumulate during the demo.
+   * Last non-empty provider list. `useResource` clears `data` to null on every
+   * key change, so reading the tabs straight off the response makes them vanish
+   * and reappear on each filter change.
    */
-  const liveFrom = useMemo(() => {
-    const dates = (runs.data ?? [])
-      .filter((run) => run.trigger !== 'backfill')
-      .map((run) => run.run_date)
-      .sort();
-    return dates[0];
-  }, [runs.data]);
+  const [providersSeen, setProvidersSeen] = useState<ProviderId[]>([]);
+  useEffect(() => {
+    const next = baseline.data?.dataset.providersWithData;
+    if (!next || next.length === 0) return;
+    setProvidersSeen((prev) =>
+      prev.length === next.length && prev.every((p, i) => p === next[i]) ? prev : next
+    );
+  }, [baseline.data]);
+
+  const providerTabs = useMemo(() => {
+    const known = providersSeen.includes(provider as ProviderId)
+      ? providersSeen
+      : // Keep the active tab rendered even if it dropped out of the dataset,
+        // so the control never shows an empty selection.
+        [...providersSeen, ...(provider === 'all' ? [] : [provider as ProviderId])];
+    return [ALL_MODELS, ...known.map((p) => ({ value: p as ProviderParam, label: PROVIDER_LABEL[p] ?? p }))];
+  }, [providersSeen, provider]);
 
   const data = overview.data;
+  const dataset = data?.dataset ?? null;
+  /**
+   * Where genuine daily collection starts, read from the dataset rather than
+   * re-derived from run triggers here — synthetic runs are not live runs, and
+   * the old filter (`trigger !== 'backfill'`) counted them as such.
+   */
+  const liveFrom = dataset?.firstLiveDate ?? undefined;
+  const deltaWindowDays = dataset?.deltaWindowDays ?? baseline.data?.dataset.deltaWindowDays ?? 0;
   const filterKey = `${provider}:${days}`;
 
   return (
@@ -49,7 +69,7 @@ export default function OverviewPage() {
         <Segmented
           label="Answer model"
           value={provider}
-          options={PROVIDERS}
+          options={providerTabs}
           onChange={setProvider}
         />
         <RangeSelect label="Date range" value={days} options={RANGES} onChange={setDays} />
@@ -73,10 +93,16 @@ export default function OverviewPage() {
               key={`chart:${filterKey}`}
               series={data?.series ?? []}
               scoreboard={data?.scoreboard ?? []}
+              dataset={dataset}
               liveFrom={liveFrom}
               loading={overview.loading}
             />
-            <Scoreboard key={`scoreboard:${filterKey}`} rows={data?.scoreboard ?? []} loading={overview.loading} />
+            <Scoreboard
+              key={`scoreboard:${filterKey}`}
+              rows={data?.scoreboard ?? []}
+              deltaWindowDays={deltaWindowDays}
+              loading={overview.loading}
+            />
           </>
         )}
       </div>

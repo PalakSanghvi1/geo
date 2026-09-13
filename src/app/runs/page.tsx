@@ -18,7 +18,7 @@ import {
 } from '@/app/_components/ui';
 import { triggerRun, useRuns } from '@/app/_lib/fetcher';
 import { ANSWER_MODELS } from '@/lib/config';
-import type { Run, RunStatus } from '@/lib/types';
+import type { Run, RunRow, RunStatus } from '@/lib/types';
 
 const CELL = 'px-5 py-3';
 const ROW = 'border-b border-hairline last:border-0';
@@ -83,27 +83,41 @@ interface ProviderHealth {
   ok: number;
   total: number;
   failed: number;
+  /** The run these counts came from is still executing, so failures may still be retried. */
+  inFlight: boolean;
 }
 
 /**
- * APPROXIMATION. `Run` carries run-wide totals only, so there is no true
- * per-provider split to read: calls are divided evenly across the answer
- * models and every failure is charged to the last one. Replace the arithmetic
- * here once Workstream A adds a per-provider breakdown to the runs payload.
+ * Real per-provider counts, read from `/api/runs`'s `byProvider` split.
+ *
+ * This used to approximate — dividing `total_calls` evenly across models and charging
+ * every failure to the last one — which invented per-provider numbers on the one page
+ * whose job is to report what actually happened.
+ *
+ * The run is also chosen honestly: health describes the newest run that was actually
+ * COLLECTED. Reading a synthetic run would report "45/45, healthy" for a provider on
+ * the strength of fabricated rows, which is the same over-claim the chart caption
+ * exists to prevent.
  */
-function providerHealth(run: Run | undefined): ProviderHealth[] {
-  const perProvider = run ? Math.floor(run.total_calls / ANSWER_MODELS.length) : 0;
-  const failed = run ? Math.min(Math.max(run.failed_calls, 0), perProvider) : 0;
-  return ANSWER_MODELS.map((model, i) => {
-    const missed = i === ANSWER_MODELS.length - 1 ? failed : 0;
+function providerHealth(run: RunRow | undefined): ProviderHealth[] {
+  const inFlight = run?.status === 'running';
+  const counts = new Map(run?.byProvider.map((p) => [p.provider, p]) ?? []);
+  return ANSWER_MODELS.map((model) => {
+    const c = counts.get(model.provider);
     return {
       provider: model.provider,
       label: model.label,
-      total: perProvider,
-      ok: perProvider - missed,
-      failed: missed,
+      total: c?.total ?? 0,
+      ok: c?.ok ?? 0,
+      failed: c?.failed ?? 0,
+      inFlight,
     };
   });
+}
+
+/** Newest run that was genuinely collected — never a fabricated one. */
+function newestRealRun(runs: RunRow[]): RunRow | undefined {
+  return runs.find((r) => r.trigger !== 'synthetic' && r.total_calls > 0);
 }
 
 function HealthCard({ health }: { health: ProviderHealth }) {
@@ -118,7 +132,11 @@ function HealthCard({ health }: { health: ProviderHealth }) {
           <span className="numeric text-[22px] leading-none font-semibold">{health.ok}</span>
           <span className="numeric text-[22px] leading-none text-ink-muted">/{health.total}</span>
           <span className="text-[13px] text-ink-muted">
-            {degraded ? `${health.failed} retrying` : 'answers'}
+            {/* Retries happen inside the call, so on a finished run a failure row is
+                final — only a run still executing can honestly say "retrying". */}
+            {degraded
+              ? `${health.failed} ${health.inFlight ? 'retrying' : 'failed'}`
+              : 'answers'}
           </span>
         </div>
       </div>
@@ -259,9 +277,10 @@ export default function RunsPage() {
 
   // Newest first, regardless of the order the API happens to return.
   const runs = useMemo(() => [...(data ?? [])].sort((a, b) => b.id - a.id), [data]);
-  // The in-flight run has no counts yet, so report the newest run that does.
+  // The in-flight run has no counts yet, and a synthetic one has no provider to be
+  // healthy about — report the newest run that was genuinely collected.
   const health = useMemo(
-    () => providerHealth(runs.find((run) => run.total_calls > 0)),
+    () => providerHealth(newestRealRun(runs)),
     [runs]
   );
 

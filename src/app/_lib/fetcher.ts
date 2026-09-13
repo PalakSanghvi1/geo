@@ -5,7 +5,7 @@ import type {
   AnswerDetailResponse,
   OverviewResponse,
   PromptRow,
-  Run,
+  RunRow,
   SourceRow,
   Suggestion,
 } from '@/lib/types';
@@ -111,8 +111,8 @@ export function useOverview(days: number, provider: ProviderParam): AsyncState<O
   );
 }
 
-export function useRuns(pollMs = 0): AsyncState<Run[]> {
-  return useResource('runs', () => getJson<Run[]>('/runs'), pollMs);
+export function useRuns(pollMs = 0): AsyncState<RunRow[]> {
+  return useResource('runs', () => getJson<RunRow[]>('/runs'), pollMs);
 }
 
 export function usePrompts(): AsyncState<PromptRow[]> {

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { deltaWindowPhrase } from '@/lib/labels';
 import type { OverviewResponse } from '@/lib/types';
 import { Card, Delta, Overline, Skeleton } from './ui';
 
@@ -68,6 +69,8 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
   const rank = data.scoreboard.findIndex((row) => row.isSelf) + 1;
   const { ok, total } = self.coverageToday;
   const failed = total - ok;
+  // The window the delta actually averaged over, which is not always seven days.
+  const deltaDays = data.dataset.deltaWindowDays;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -75,9 +78,15 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
         label="Visibility"
         value={`${self.visibility.toFixed(0)}%`}
         footer={
-          <>
-            <Delta value={self.delta7} suffix=" pts" /> vs 7-day avg
-          </>
+          // With no prior day the phrase stands alone: a signed change against
+          // nothing is not a change worth printing.
+          deltaDays <= 0 ? (
+            deltaWindowPhrase(deltaDays)
+          ) : (
+            <>
+              <Delta value={self.delta7} suffix=" pts" /> {deltaWindowPhrase(deltaDays)}
+            </>
+          )
         }
       />
       <StatCard
