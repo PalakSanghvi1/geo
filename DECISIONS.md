@@ -302,3 +302,22 @@ Append, don't rewrite. One line each, newest at the bottom.
     accent-coloured text, which failed AA at the brand accent; focus-visible rings;
     `text-ink-faint` reserved for placeholders rather than real values.
   - Dead code removed: `CardHeader` and `ComingSoon` had no call sites left.
+
+## Post-hackathon — Dev C
+
+- **nginx basic auth on `/geo`** (2026-09-13). Before it, the dashboard and the API
+  were readable and writable from the public internet with no credentials —
+  `POST /api/trigger` queued roughly $11 of model calls anonymously. User `geo`,
+  hash in `/etc/nginx/.htpasswd-geo`, config backed up as
+  `cape-fear-staging.bak.<epoch>`, `nginx -t` run before reload with an automatic
+  restore on failure. It is one shared password over plain HTTP: a door lock on a
+  demo box, not a security model. Remove it the day real auth ships. Internal
+  traffic is unaffected — both processes talk to 127.0.0.1:3100 and Slack is an
+  outbound socket — but links from Slack and Notion now prompt.
+- **`docs/multi-tenant-plan.md`** records the scoping for accounts, organizations
+  and onboarding. Two findings in it are live bugs, not future work:
+  `src/lib/metrics.ts:253` reads competitor domains from the `SEED_BRANDS`
+  constant because `brands` has no `domains` column, so any competitor added via
+  the approve path is invisible to source attribution; and `scripts/seed.ts:33`
+  plus `src/pipeline/extract.ts:64` still use the bare-string strict tool schema
+  this file already documented as returning a degenerate result one call in four.
