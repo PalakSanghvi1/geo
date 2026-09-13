@@ -27,6 +27,20 @@ import { log, logError } from './log';
 
 const POLL_INTERVAL_MS = 5_000;
 
+/**
+ * The most recent Sunday strictly before today, as YYYY-MM-DD. The weekly report
+ * runs on a Monday and covers the week that just ended, so it must not label
+ * itself with the day it happens to run.
+ */
+function lastWeekEnding(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  // getUTCDay(): 0 = Sunday. Step back at least one day, then to that Sunday.
+  const daysBack = local.getUTCDay() === 0 ? 7 : local.getUTCDay();
+  local.setUTCDate(local.getUTCDate() - daysBack);
+  return local.toISOString().slice(0, 10);
+}
+
 /** Today in the local timezone as YYYY-MM-DD, matching `runs.run_date`. */
 function today(): string {
   const now = new Date();
@@ -153,8 +167,14 @@ function scheduleJobs(): void {
   });
 
   safeSchedule('0 10 * * 1', 'weekly Notion report', async () => {
-    const url = await publishWeeklyReport(today());
-    log('cron', url ? `Notion report published: ${url}` : 'Notion report skipped');
+    const weekEnding = lastWeekEnding();
+    const url = await publishWeeklyReport(weekEnding);
+    log(
+      'cron',
+      url
+        ? `Notion report published for week ending ${weekEnding}: ${url}`
+        : `Notion report skipped for week ending ${weekEnding}`
+    );
   });
 
   // Demo mode: an extra run every N minutes so history moves during judging.

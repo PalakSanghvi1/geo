@@ -126,3 +126,32 @@ Append, don't rewrite. One line each, newest at the bottom.
   Linear is Workstream C's job, but the route lives in Workstream B's directory.
   `createIssue(suggestion)` is exported and ready; someone who owns `src/app/` needs to
   add the endpoint that calls it, or the demo's "push to Linear" button has no backend.
+
+## Phase C3 — Dev C
+
+- **Notion rejects any URL longer than 2000 characters**, and it is Notion's servers that
+  fetch the QuickChart image. With ordinary `JSON.stringify` the plan's "Lemma + top 4
+  competitors" chart came to ~2500 characters and had to be trimmed to 2 competitors.
+  Two changes made the specified chart fit: the config is serialized in QuickChart's
+  JSON5-tolerant dialect (unquoted keys, single quotes — `encodeURIComponent` expands
+  every `"` to `%22` but leaves `'` alone), and chart values are rounded to whole percent
+  because the exact figures are in the scoreboard table. Result: **1870 characters with
+  the longest real brand name**, verified rendering as a 230 KB PNG. The report still
+  degrades 4 → 3 → 2 → 1 → no image if a future chart outgrows the budget.
+- **QuickChart's default renderer is Chart.js v2** (`options.title`, `options.legend`,
+  `options.scales.yAxes`). Modernising those keys to v3/v4 syntax silently drops the axes
+  and the title unless `&v=3` is also appended to the URL.
+- **A `strict: true` tool schema whose array holds bare strings is unreliable.** One live
+  Sonnet call in four returned the degenerate `{"takeaways": ["takeaways"]}` — the field
+  name as the only item. Wrapping each item in an object with a named `text` field fixed
+  it across 8 consecutive runs. Worth applying to any other forced-tool call in the repo
+  that wants a list of strings.
+- **The weekly report is labelled with the week it covers, not the day it runs.** The
+  Monday cron resolves the previous Sunday, so a report published on Monday the 14th is
+  titled "week ending 2026-09-13".
+- **`publishWeeklyReport` degrades rather than aborting.** If the narrative model call
+  fails the page still publishes without takeaways; an empty database produces a shorter
+  page (no table, no image — Notion rejects a table with no rows) instead of a crash.
+- **Unverified until the first real publish:** that `pages.create` accepts the inline
+  `table` + `table_row` children in one call. If it rejects them, create the page without
+  the table and append it with `blocks.children.append`.
