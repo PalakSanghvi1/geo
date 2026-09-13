@@ -80,11 +80,10 @@ async function processRequest(request: RunRequest): Promise<void> {
     ]);
     log('poller', `request #${request.id} done → run #${runId}${usedStub ? ' (stub runner)' : ''}`);
 
-    // Every manual run reports back to Slack; the scheduled run gets the full
-    // digest from the daily cron instead of a duplicate completion post.
-    if (trigger === 'manual') {
-      await notifyRunComplete(runId, request.requested_by);
-    }
+    // Every run that comes through the queue reports back to Slack with the
+    // full digest. Backfill does not pass through here (it calls the runner
+    // directly), so replaying history cannot spam the channel.
+    await notifyRunComplete(runId, request.requested_by);
   } catch (error) {
     dbRun(`UPDATE run_requests SET status = 'failed' WHERE id = ?`, [request.id]);
     logError('poller', `request #${request.id} failed`, error);
