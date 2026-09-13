@@ -16,6 +16,7 @@ import {
   Skeleton,
   cx,
 } from '@/app/_components/ui';
+import { formatRunDay } from '@/app/_lib/dates';
 import { triggerRun, useRuns } from '@/app/_lib/fetcher';
 import { ANSWER_MODELS } from '@/lib/config';
 import { isFabricated } from '@/lib/provenance';
@@ -25,23 +26,11 @@ const CELL = 'px-5 py-3';
 const ROW = 'border-b border-hairline last:border-0';
 const SKELETON_ROWS = 6;
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
 /* ------------------------------------------------------------------ */
 /* Formatting                                                          */
 /* ------------------------------------------------------------------ */
 
 /** 'YYYY-MM-DD' → 'Sep 13'. Parsed by hand: `new Date(s)` shifts the day west of UTC. */
-function formatRunDate(value: string): string {
-  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!parts) return value;
-  const month = MONTHS[Number(parts[2]) - 1];
-  return month ? `${month} ${Number(parts[3])}` : value;
-}
-
 /** 'YYYY-MM-DD HH:MM:SS' → epoch seconds; null for anything else. */
 function parseStamp(value: string | null): number | null {
   if (!value) return null;
@@ -238,7 +227,7 @@ function RunRow({ run }: { run: Run }) {
   return (
     <tr className={cx(ROW, run.status === 'running' && 'bg-accent-wash')}>
       <td className={cx(CELL, 'numeric font-medium')}>#{run.id}</td>
-      <td className={cx(CELL, 'whitespace-nowrap')}>{formatRunDate(run.run_date)}</td>
+      <td className={cx(CELL, 'whitespace-nowrap')}>{formatRunDay(run.run_date)}</td>
       <td className={CELL}><Badge>{run.trigger}</Badge></td>
       <td className={CELL}><StatusCell status={run.status} /></td>
       <td className={CELL}>

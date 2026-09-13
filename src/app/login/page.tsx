@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
+import { Logo } from '@/app/_components/logo';
 import { Button, Card } from '@/app/_components/ui';
 
 /**
@@ -41,7 +42,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-5 py-10">
       <div className="w-full max-w-[380px]">
         <div className="mb-7 flex items-center gap-2.5">
-          <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
+          <Logo size={18} />
           <span className="font-mono text-[13px] font-medium tracking-[0.18em]">GEO</span>
         </div>
 
