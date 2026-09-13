@@ -84,3 +84,30 @@ Append, don't rewrite. One line each, newest at the bottom.
   intermittently.
 - **Run requests are claimed in a transaction** (`SELECT … then UPDATE … 'picked_up'`)
   and the poller refuses to start a second run while one is in flight.
+
+## Phase C2 — Dev C
+
+- **`scripts/seed-linear.ts` sits in Workstream A's directory on purpose.** §2 gives
+  `scripts/` to Dev A, but §8 Phase C2 names this exact path as a Dev C deliverable and
+  `package.json` already wires `npm run seed-linear` to it. Flagging it so the boundary
+  looks deliberate at merge time — Dev C touches no other file under `scripts/`.
+- **Linear personal API keys go in `Authorization` raw, with no `Bearer ` prefix.**
+  With the prefix every request fails authentication. True for the seed script and the
+  scan alike.
+- **Anthropic strict tool schemas reject `maxItems` on an array** (HTTP 400:
+  "for 'array' type, property 'maxItems' is not supported"). The "at most 5 suggestions"
+  cap is therefore enforced three ways: in the prompt, in the schema `description`, and
+  with a hard `.slice(0, 5)` on the result.
+- **The digest posts on every completed queued run, and there is no separate daily
+  digest cron.** The daily cron queues a run; that run's completion posts the digest.
+  Wiring a second timed digest would double-post every morning. Backfill calls the
+  runner directly and never enters the queue, so replaying history posts nothing.
+- **Suggestion dedupe key** = text trimmed, internal whitespace collapsed, lowercased,
+  compared across every row regardless of source or status, and within the incoming
+  batch too. A re-scan of an unchanged roadmap therefore inserts nothing.
+- **`buildDigest()` is the single Slack body.** Run completions post the digest plus a
+  one-line footer naming the run, rather than a second, differently-worded summary that
+  could disagree with it.
+- **The digest's `date` argument labels only.** `metrics.ts` exposes no per-date query,
+  so the numbers are always the latest day with answers; when the requested date differs,
+  the digest says so rather than implying it is historical.

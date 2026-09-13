@@ -8,13 +8,16 @@
  *   /geo status         today's headline numbers
  * plus run completion/failure messages posted back to SLACK_CHANNEL_ID.
  *
- * The richer Block Kit daily digest lands in Phase C2 (buildDigest).
+ * Phase C2 adds the Block Kit daily digest (buildDigest / postDigest). Every
+ * number in it comes from src/lib/metrics.ts — the dashboard, this digest and
+ * the Notion report must never compute visibility independently.
  */
 import { App, LogLevel } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
-import { PUBLIC_BASE_URL } from '../lib/config';
+import { PROJECT, PUBLIC_BASE_URL } from '../lib/config';
 import { get, run } from '../lib/db';
-import { getOverview } from '../lib/metrics';
+import { getOverview, getSignals, recentDates } from '../lib/metrics';
+import { today } from '../worker/run-bridge';
 import { log, logError } from '../worker/log';
 
 let app: App | null = null;
@@ -86,7 +89,10 @@ interface RunRow {
   failed_calls: number;
 }
 
-/** Short completion summary. Phase C2 replaces this with the full digest. */
+/**
+ * Compact completion summary. Run completions now post the full digest (see
+ * notifyRunComplete); this stays available for anywhere a short body is wanted.
+ */
 export function buildRunCompleteBlocks(runId: number, requestedBy: string): KnownBlock[] {
   const row = get<RunRow>(
     `SELECT id, run_date, status, total_calls, ok_calls, failed_calls FROM runs WHERE id = ?`,
@@ -140,6 +146,154 @@ export function buildRunCompleteBlocks(runId: number, requestedBy: string): Know
 }
 
 /* ------------------------------------------------------------------ */
+/* Daily digest (Phase C2)                                             */
+/* ------------------------------------------------------------------ */
+
+/** 'YYYY-MM-DD' → 'Sat 13 Sep 2026'; falls back to the raw string. */
+function formatDate(date: string): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString('en-GB', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Coverage fallback for days where no answer has been scored yet (so
+ * `overview.self` is null): read the run rows' own call counters.
+ */
+function runCoverageFor(date: string): { ok: number; total: number } {
+  const row = get<{ ok: number | null; total: number | null }>(
+    `SELECT SUM(ok_calls) AS ok, SUM(total_calls) AS total FROM runs WHERE run_date = ?`,
+    [date]
+  );
+  return { ok: row?.ok ?? 0, total: row?.total ?? 0 };
+}
+
+function coverageLine(ok: number, total: number): string {
+  if (total <= 0) return ':warning: No answers collected yet for this date.';
+  const emoji = ok >= total ? ':white_check_mark:' : ':warning:';
+  const pctOk = Math.round((ok / total) * 100);
+  const shortfall = ok >= total ? '' : ` (${pctOk}% coverage — ${total - ok} call(s) failed)`;
+  return `${ok}/${total} answers collected${shortfall} ${emoji}`;
+}
+
+function section(text: string): KnownBlock {
+  return { type: 'section', text: { type: 'mrkdwn', text } };
+}
+
+function context(text: string): KnownBlock {
+  return { type: 'context', elements: [{ type: 'mrkdwn', text }] };
+}
+
+function buildDigestBlocks(date?: string): KnownBlock[] {
+  const latest = recentDates(1)[0] ?? null;
+  const target = date ?? latest ?? today();
+
+  const overview = getOverview(14, 'all');
+  const self = overview.self;
+  const brand = self?.brand ?? PROJECT.name;
+
+  const blocks: KnownBlock[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `📊 ${brand} AI visibility — ${formatDate(target)}`, emoji: true },
+    },
+  ];
+
+  // 1. Headline: visibility and the delta against the 7-day average.
+  if (self) {
+    const rank = overview.scoreboard.findIndex((r) => r.isSelf) + 1;
+    blocks.push(
+      section(
+        `*Visibility ${pct(self.visibility)}*  ${signed(self.delta7)} vs 7-day average\n` +
+          `Rank *${rank || '—'}* of ${overview.scoreboard.length} tracked brands · ` +
+          `avg position ${self.avgPosition === null ? '—' : self.avgPosition.toFixed(1)} · ` +
+          `sentiment ${self.sentiment > 0 ? '+' : ''}${self.sentiment}`
+      )
+    );
+  } else {
+    blocks.push(
+      section(
+        `*No scored answers yet.*\n${brand}'s visibility will appear here after the first run finishes — queue one with \`/geo run\`.`
+      )
+    );
+  }
+
+  // 2. Notable events — computed once, in metrics.ts, for every surface.
+  const signals = getSignals(14);
+  blocks.push(
+    section(
+      signals.length > 0
+        ? `*Notable events*\n${signals.map((s) => `• ${s.text}`).join('\n')}`
+        : '*Notable events*\n• Nothing unusual — no big swings, no new competitors, no provider disagreement.'
+    )
+  );
+
+  // 3. Top 3 competitors, one line.
+  const competitors = overview.scoreboard.filter((r) => !r.isSelf).slice(0, 3);
+  blocks.push(
+    section(
+      competitors.length > 0
+        ? `*Top competitors:* ${competitors
+            .map((c) => `${c.brand} ${pct(c.visibility)} (${signed(c.delta7)})`)
+            .join(' · ')}`
+        : '*Top competitors:* none mentioned yet.'
+    )
+  );
+
+  // 4. Coverage.
+  const coverage =
+    self && self.coverageToday.total > 0 ? self.coverageToday : runCoverageFor(target);
+  blocks.push(context(`Coverage: ${coverageLine(coverage.ok, coverage.total)}`));
+
+  // 5. Dashboard link (plus an honesty note when the numbers are not the
+  //    requested day's — metrics always report the latest day with answers).
+  if (date && latest && date !== latest) {
+    blocks.push(context(`_Numbers above are from the latest run date (${latest})._`));
+  }
+  blocks.push(section(`<${PUBLIC_BASE_URL}|Open the GEO dashboard> · <${PUBLIC_BASE_URL}/runs|Run history>`));
+
+  return blocks;
+}
+
+/**
+ * The daily digest as Block Kit blocks. `date` only labels the digest; the
+ * numbers always come from metrics.ts's latest day with answers (and a note is
+ * added when those differ). Never throws — Slack must not be able to break a run.
+ */
+export function buildDigest(date?: string): KnownBlock[] {
+  try {
+    return buildDigestBlocks(date);
+  } catch (error) {
+    logError('slack', 'digest build failed — posting a minimal body', error);
+    return [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `📊 ${PROJECT.name} AI visibility`, emoji: true },
+      },
+      section(
+        `Could not read the metrics database just now.\n<${PUBLIC_BASE_URL}|Open the GEO dashboard>`
+      ),
+    ];
+  }
+}
+
+/** Plain-text notification fallback for the digest (used as Slack's `text`). */
+export function buildDigestText(date?: string): string {
+  try {
+    const target = date ?? recentDates(1)[0] ?? today();
+    return `GEO daily digest — ${target}: ${buildStatusLine()}`;
+  } catch {
+    return 'GEO daily digest';
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Outbound posts                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -167,11 +321,48 @@ export async function postToChannel(text: string, blocks?: KnownBlock[]): Promis
   }
 }
 
+/** Post the daily digest. Returns false when Slack is not configured/reachable. */
+export async function postDigest(date?: string): Promise<boolean> {
+  try {
+    return await postToChannel(buildDigestText(date), buildDigest(date));
+  } catch (error) {
+    logError('slack', 'postDigest failed', error);
+    return false;
+  }
+}
+
+/**
+ * A completed run posts the full digest plus a one-line context footer naming
+ * the run and whoever asked for it.
+ */
 export async function notifyRunComplete(runId: number, requestedBy: string): Promise<void> {
-  await postToChannel(
-    `Run #${runId} complete`,
-    buildRunCompleteBlocks(runId, requestedBy)
-  );
+  try {
+    const blocks = buildDigest();
+    blocks.push(context(runFooter(runId, requestedBy)));
+    await postToChannel(`Run #${runId} complete — ${buildDigestText()}`, blocks);
+  } catch (error) {
+    logError('slack', `notifyRunComplete(${runId}) failed`, error);
+  }
+}
+
+/** "Posted after run #12 (manual, 135/135 ok) · requested by slack:U123 · <link>". */
+function runFooter(runId: number, requestedBy: string): string {
+  let detail = '';
+  try {
+    const row = get<RunRow>(
+      `SELECT id, run_date, status, total_calls, ok_calls, failed_calls FROM runs WHERE id = ?`,
+      [runId]
+    );
+    if (row) {
+      detail =
+        ` (${row.status}` +
+        (row.total_calls > 0 ? `, ${row.ok_calls}/${row.total_calls} answers` : '') +
+        `)`;
+    }
+  } catch (error) {
+    logError('slack', `could not read run #${runId} for the digest footer`, error);
+  }
+  return `Posted after run #${runId}${detail} · requested by ${requestedBy} · <${PUBLIC_BASE_URL}/runs|Open the runs page>`;
 }
 
 export async function notifyRunFailed(requestedBy: string, reason: string): Promise<void> {
