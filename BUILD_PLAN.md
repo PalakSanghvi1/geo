@@ -287,13 +287,49 @@ Dev C laptop ┘                  (main = always deployable)  │
 
 - Repo: `github.com/PalakSanghvi1/geo`, public. Dev A creates it in Phase 0 and adds B and C as collaborators.
 - Branches: `main` (deployable at all times, Dev A is merge owner), `ws-a`, `ws-b`, `ws-c`.
-- **Push cadence: commit and push your branch at the end of every phase, and at every checkpoint time even if mid-task.** Small commits, present-tense messages. Never let more than ~40 minutes of work sit unpushed — a laptop problem must not kill a workstream.
-- **Merge checkpoints (hard sync points, everyone pauses):**
-  - **11:30** — Checkpoint 1: A merged (pipeline runs E2E, ≥1 provider); B merged (dashboard skeleton on mock/API data); C merged (Slack bot connects, responds to `/geo ping`).
-  - **13:30** — Checkpoint 2: everything merged; **first deploy to VPS**; backfill running or done.
-  - **15:00** — Feature freeze: final merges, deploy, live end-to-end test.
-- Merge order at each checkpoint: A → main, then B rebases on main and merges, then C. Conflicts should be near-zero because of directory ownership; if one appears in `lib/`, Dev A resolves it.
-- **Public repo hygiene:** `.env` is gitignored from the very first commit. Before every push, devs run `git diff --cached` mentally scanning for tokens. If a key is ever pushed, rotate it immediately (all providers allow instant rotation) and move on — do not spend hackathon time rewriting git history.
+
+**NOBODY PUSHES TO `main` DIRECTLY.** Each dev commits only to their own `ws-*`
+branch and integrates through a pull request. The one exception is Dev A's Phase 0
+bootstrap commit, which creates the repo and the shared contracts every other branch
+is cut from — there is nothing to open a PR against until that exists.
+
+- **Push cadence: commit and push YOUR BRANCH at the end of every phase, and at every
+  checkpoint time even if mid-task.** Small commits, present-tense messages. Never let
+  more than ~40 minutes of work sit unpushed — a laptop problem must not kill a
+  workstream. Pushing a `ws-*` branch is always safe; it changes nothing for anyone else.
+- **Integration checkpoints — this is when work becomes visible to the other two devs.**
+  Each dev opens (or updates) a PR from their branch to `main`, and Dev A merges them in
+  order. Until a PR is merged, the other workstreams cannot see or build on that code, so
+  missing a checkpoint blocks people:
+  - **11:30** — Checkpoint 1: A (pipeline runs end-to-end on ≥1 provider); B (dashboard
+    skeleton on mock or live API data); C (Slack bot connects, answers `/geo ping`).
+  - **13:30** — Checkpoint 2: everything merged; **first deploy to the VPS**; backfill
+    running or done.
+  - **15:00** — Feature freeze: final PRs merged, deploy, live end-to-end test.
+- **Merge order at each checkpoint: A → `main` first, then B, then C.** Workstream A owns
+  the shared contracts in `src/lib/`, so it lands first and the other two rebase onto it:
+
+  ```bash
+  # each dev, at a checkpoint
+  git add -A && git commit -m "..." && git push -u origin ws-b
+  gh pr create --base main --head ws-b --title "..." --body "..."
+  # after Dev A merges A's PR, and before continuing work:
+  git fetch origin && git rebase origin/main
+  ```
+
+  Conflicts should be near-zero because workstream boundaries are directory boundaries.
+  If one appears in `src/lib/`, Dev A resolves it — never resolve someone else's contract.
+- **PR hygiene under time pressure:** these PRs exist to make integration visible and
+  reviewable, not to gate work behind approval. Dev A merges as soon as the branch builds
+  (`npx tsc --noEmit` and `npm run build` both clean) — do not wait for a formal review at
+  a checkpoint. A PR that breaks the build does not get merged; fix it on the branch.
+- Between checkpoints, keep working on your branch. If you need something another
+  workstream just landed, `git fetch origin && git rebase origin/main` rather than waiting
+  for the next checkpoint.
+- **Public repo hygiene:** `.env` is gitignored from the very first commit. Before every
+  push run `git diff --cached --name-only` and confirm no `.env` and no `data/` file is
+  staged. If a key is ever pushed, rotate it immediately (all providers allow instant
+  rotation) and move on — do not spend hackathon time rewriting git history.
 
 ---
 

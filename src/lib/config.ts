@@ -41,7 +41,10 @@ export const ANSWER_MODELS: ModelChoice[] = [
     // Verified 2026-09-13: 3.1 Pro is only published under the -preview id;
     // a bare `gemini-3.1-pro` does not resolve.
     primary: 'gemini-3.1-pro-preview',
-    fallback: 'gemini-2.5-pro',
+    // gemini-2.5-pro and 2.5-flash appear in ListModels but 404 on generateContent
+    // for this key. 3.5-flash is the best id that actually generates, and it also
+    // has quota on the free tier, which the preview Pro model does not.
+    fallback: 'gemini-3.5-flash',
   },
 ];
 

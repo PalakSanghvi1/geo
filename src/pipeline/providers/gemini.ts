@@ -53,9 +53,12 @@ export async function askWithSearch(prompt: string, modelId: string): Promise<Pr
     });
 
     if (!res.ok) {
-      const body = (await res.text()).replace(/\s+/g, ' ').slice(0, 300);
-      // Surface the status so the runner's retry/fallback logic can classify it.
-      const err = new Error(`gemini HTTP ${res.status}: ${body}`) as Error & { status?: number };
+      const body = (await res.text()).replace(/\s+/g, ' ').slice(0, 240);
+      // Name the model in the message: with tier fallback in play, "429" alone doesn't
+      // say whether the Pro model ran out of quota or the Flash fallback did too.
+      const err = new Error(`gemini ${modelId} HTTP ${res.status}: ${body}`) as Error & {
+        status?: number;
+      };
       err.status = res.status;
       throw err;
     }

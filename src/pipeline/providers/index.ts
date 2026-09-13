@@ -80,7 +80,12 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
     } catch (err) {
       lastError = err;
 
-      if (isUnknownModel(err) && !usedFallback) {
+      // Two repairable conditions, both fixed by switching model id rather than waiting:
+      //   - the primary id is rejected outright
+      //   - the primary is rate-limited. Quota on these APIs is per-model-tier, so a
+      //     preview/Pro model with no quota left says nothing about a Flash-tier model.
+      //     Backing off would burn the whole retry budget on a model that has none.
+      if ((isUnknownModel(err) || statusOf(err) === 429) && !usedFallback) {
         modelId = choice.fallback;
         usedFallback = true;
         attempt--; // the swap is a repair, not a wasted attempt
