@@ -8,6 +8,7 @@
     "start": "next start -p 3100",
     "worker": "tsx src/worker/index.ts",
     "migrate": "tsx scripts/migrate.ts",
+    "auth-migrate": "tsx scripts/auth-migrate.ts",
     "seed": "tsx scripts/seed.ts",
     "run-once": "tsx scripts/run-once.ts",
     "backfill": "tsx scripts/backfill.ts",
@@ -26,6 +27,7 @@
     "@google/genai": "^2.22.0",
     "@notionhq/client": "^5.26.0",
     "@slack/bolt": "^5.1.0",
+    "better-auth": "^1.7.4",
     "better-sqlite3": "^13.0.3",
     "date-fns": "^4.4.0",
     "next": "16.3.5",
@@ -45,5 +47,10 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"
+  },
+  "overrides": {
+    "better-auth": {
+      "better-sqlite3": "$better-sqlite3"
+    }
   }
 }

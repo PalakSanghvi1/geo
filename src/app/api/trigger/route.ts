@@ -7,6 +7,7 @@
  * dashboard-triggered runs all share one code path.
  */
 import { run as exec } from '@/lib/db';
+import { requireSession } from '@/lib/session';
 import { fail, ok, readJsonBody } from '../_lib/http';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,10 @@ const MAX_NOTE_LENGTH = 500;
 
 export async function POST(request: Request) {
   try {
+    // A run costs roughly $11 in model calls, so this endpoint is the one that
+    // most needs a real identity behind it — not just the proxy's cookie check.
+    const user = await requireSession(request);
+
     const body = await readJsonBody(request);
     const rawNote = body.note;
     const note =
@@ -25,7 +30,7 @@ export async function POST(request: Request) {
 
     const info = exec(
       `INSERT INTO run_requests (requested_by, note, status) VALUES (?, ?, 'pending')`,
-      ['dashboard', note]
+      [`user:${user.email}`, note]
     );
 
     return ok({ id: Number(info.lastInsertRowid) }, 201);
