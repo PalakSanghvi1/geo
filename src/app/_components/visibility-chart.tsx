@@ -43,7 +43,7 @@ const TICK_COUNT = 5;
 /** Recharts wants one object per x value, so the long series is pivoted wide. */
 interface Row {
   date: string;
-  [brand: string]: string | number;
+  [brand: string]: string | number | null;
 }
 
 function pivot(series: SeriesPoint[], brands: Array<{ brand: string }>): Row[] {
@@ -109,7 +109,9 @@ export function VisibilityChart({
   const rows = useMemo(() => pivot(series, brands), [series, brands]);
 
   const yMax = useMemo(() => {
-    const values = series.map((p) => p.visibility).filter((v) => Number.isFinite(v));
+    const values = series
+      .map((p) => p.visibility)
+      .filter((v): v is number => v !== null && Number.isFinite(v));
     const peak = Math.max(10, ...values);
     return Math.ceil(peak / 20) * 20;
   }, [series]);
