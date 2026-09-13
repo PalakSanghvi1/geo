@@ -351,3 +351,10 @@ Append, don't rewrite. One line each, newest at the bottom.
   `emailVerified = 0`; better-auth's magic link matches on email, so their first
   sign-in lands on that row and keeps the membership. Verified: one user row after
   sign-in, not two, with the role intact and the address then verified.
+- **Sign-in is opt-in per deployment (`AUTH_ENABLED`), defaulting to off.** Without
+  the flag, the first deploy after the auth merge would have locked everyone out of
+  the dashboard: pm2 runs with `NODE_ENV=production`, where `sendMagicLink` throws
+  on purpose because no mail transport exists, while the proxy gates every page. A
+  login page nobody can get past, in front of the whole demo. The flag goes to
+  `true` once the box has a domain, a certificate and a mail transport; until then
+  the nginx basic auth is the protection.

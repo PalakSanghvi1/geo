@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const info = exec(
       `INSERT INTO run_requests (requested_by, note, status) VALUES (?, ?, 'pending')`,
-      [`user:${user.email}`, note]
+      [user ? `user:${user.email}` : 'dashboard', note]
     );
 
     return ok({ id: Number(info.lastInsertRowid) }, 201);
