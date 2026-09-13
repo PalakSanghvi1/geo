@@ -80,12 +80,17 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
     } catch (err) {
       lastError = err;
 
-      // Two repairable conditions, both fixed by switching model id rather than waiting:
-      //   - the primary id is rejected outright
-      //   - the primary is rate-limited. Quota on these APIs is per-model-tier, so a
-      //     preview/Pro model with no quota left says nothing about a Flash-tier model.
-      //     Backing off would burn the whole retry budget on a model that has none.
-      if ((isUnknownModel(err) || statusOf(err) === 429) && !usedFallback) {
+      // Switching model id repairs two conditions, but only where the quota is scoped
+      // to the model:
+      //   - the primary id is rejected outright (any provider)
+      //   - the primary is rate-limited AND quota is per-model-tier, which is true of
+      //     Gemini (a Pro model out of quota says nothing about Flash) but NOT of
+      //     Anthropic or OpenAI, where 429 is account-wide. Swapping model there just
+      //     burns the fallback and retries into the same limit — which is exactly what
+      //     happened during the first full backfill: gpt-5.6-terra 429'd, we fell back
+      //     to gpt-5, and gpt-5 429'd too. Those providers must back off instead.
+      const quotaIsPerModel = provider === 'gemini';
+      if ((isUnknownModel(err) || (quotaIsPerModel && statusOf(err) === 429)) && !usedFallback) {
         modelId = choice.fallback;
         usedFallback = true;
         attempt--; // the swap is a repair, not a wasted attempt
@@ -96,7 +101,9 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
 
       // Retries are the main hidden cost in a slow run: a throttled provider looks
       // identical to a slow one from the outside. Say so out loud.
-      const base = RUNNER.backoffMs[Math.min(attempt, RUNNER.backoffMs.length - 1)];
+      const schedule =
+        statusOf(err) === 429 ? RUNNER.rateLimitBackoffMs : RUNNER.backoffMs;
+      const base = schedule[Math.min(attempt, schedule.length - 1)];
       const wait = Math.round(base * (0.5 + Math.random())); // jitter, so lanes desynchronise
       console.warn(
         `  [retry] ${provider} ${modelId} status=${statusOf(err) ?? 'net'} ` +

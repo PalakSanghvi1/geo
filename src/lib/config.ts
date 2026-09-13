@@ -60,19 +60,33 @@ export const REASONING_MODEL = 'claude-sonnet-5';
 
 export const RUNNER = {
   /**
-   * Concurrent in-flight calls per provider. Measured: at 4 the providers returned
-   * 11.7 answers/min with zero retries, i.e. no throttling at all, so there was
-   * headroom to take. Raise further only if `[retry] ... status=429` lines stay
-   * absent from a full run — past the rate limit, more lanes make a run slower,
-   * not faster.
+   * Concurrent in-flight calls, PER PROVIDER — they do not share a rate limit and
+   * must not share a number.
+   *
+   * Measured over a full 8-day backfill at a flat 8 lanes each: Anthropic retried 8
+   * times, OpenAI retried 211 and degraded from 90/90 on the first day to 2/90 on the
+   * last. That shape is a token bucket draining — a burst is allowed, then throttling
+   * bites, and by then extra lanes are making things worse rather than faster. The
+   * short single-run test that showed zero retries was too short to hit it, which is
+   * why it looked like free headroom.
    */
-  concurrencyPerProvider: 8,
+  concurrencyPerProvider: {
+    anthropic: 8,
+    openai: 3,
+    gemini: 4,
+  } as Record<ProviderId, number>,
   /** Per-call timeout for an answer request. */
   answerTimeoutMs: 90_000,
   /** Retries after the first attempt, on timeout / 429 / 5xx. */
   maxRetries: 2,
-  /** Backoff schedule between retries. */
+  /** Backoff schedule between retries, for transient faults and timeouts. */
   backoffMs: [2_000, 8_000],
+  /**
+   * Rate limits need a different schedule. A token bucket refills on a timescale of
+   * tens of seconds, so retrying after 2s just spends another request confirming the
+   * bucket is still empty — and under concurrency, every lane does that at once.
+   */
+  rateLimitBackoffMs: [15_000, 45_000],
   /**
    * Max tokens per answer. Generous enough that a cited, multi-brand answer is
    * never truncated — a cut-off answer silently loses the brands named last,
