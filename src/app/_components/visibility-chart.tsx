@@ -14,6 +14,7 @@ import {
 import { datasetCaption, isMostlySynthetic } from '@/lib/labels';
 import type { DatasetShape, ScoreboardRow, SeriesPoint } from '@/lib/types';
 import { HAIRLINE, INK, INK_FAINT, INK_MUTED, chartBrands } from './brand-colors';
+import { formatRunDay } from '../_lib/dates';
 import { Badge, Card, CardTitle, Skeleton, cx } from './ui';
 
 /**
@@ -22,19 +23,22 @@ import { Badge, Card, CardTitle, Skeleton, cx } from './ui';
  * knowing about the others, so two brands a point apart print on top of each
  * other. Laying them out ourselves lets us push them apart.
  */
-const CHART_H = 264;
-const X_AXIS_H = 30;
+const CHART_H = 288;
+const X_AXIS_H = 48;
 const MARGIN = { top: 12, right: 124, bottom: 4, left: 4 };
 const PLOT_H = CHART_H - MARGIN.top - MARGIN.bottom - X_AXIS_H;
 /** Minimum vertical gap between two end labels. */
 const LABEL_GAP = 15;
-
-function formatDay(iso: string): string {
-  const [, month, day] = iso.split('-').map(Number);
-  if (!Number.isFinite(month) || !Number.isFinite(day)) return iso;
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${names[(month ?? 1) - 1]} ${day}`;
-}
+/**
+ * Above this many days, labelling every date would overlap even at an angle, so
+ * the axis thins out to `TICK_COUNT` evenly spaced labels instead. The Overview
+ * page currently offers 7 and 14 day windows, so in practice every date is
+ * labelled; the fallback is here so a longer window added later degrades
+ * sensibly rather than turning the axis into a smear.
+ */
+const MAX_DATE_LABELS = 21;
+/** How many labels to fall back to once the window is too long to label fully. */
+const TICK_COUNT = 5;
 
 /** Recharts wants one object per x value, so the long series is pivoted wide. */
 interface Row {
@@ -67,7 +71,7 @@ function ChartTooltip({
   const rows = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
   return (
     <div className="rounded-card border border-hairline bg-card px-3 py-2 text-[12px] shadow-sm">
-      <div className="field-label mb-1.5">{label ? formatDay(label) : ''}</div>
+      <div className="field-label mb-1.5">{label ? formatRunDay(label) : ''}</div>
       {rows.map((row) => (
         <div key={row.name} className="flex items-center gap-2 py-px">
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: row.color }} aria-hidden />
@@ -110,13 +114,26 @@ export function VisibilityChart({
     return Math.ceil(peak / 20) * 20;
   }, [series]);
 
+  /**
+   * Evenly spaced date labels that always include the first and last day.
+   *
+   * The previous version stepped by a fixed interval and then appended the last
+   * day if the loop had missed it, which put the final two labels on adjacent
+   * days while every other pair sat three apart — the axis read as regular until
+   * the right-hand edge. Interpolating the positions instead keeps every gap
+   * within a day of the others, whatever the window length.
+   */
   const ticks = useMemo(() => {
-    if (rows.length === 0) return [] as string[];
-    const step = Math.max(1, Math.round((rows.length - 1) / 4));
+    const n = rows.length;
+    if (n === 0) return [] as string[];
+    if (n <= MAX_DATE_LABELS) return rows.map((r) => r.date);
+
+    // Too long to label every day: evenly spaced, both ends always included.
     const out: string[] = [];
-    for (let i = 0; i < rows.length; i += step) out.push(rows[i].date);
-    const last = rows[rows.length - 1].date;
-    if (out[out.length - 1] !== last) out.push(last);
+    for (let i = 0; i < TICK_COUNT; i += 1) {
+      const date = rows[Math.round((i * (n - 1)) / (TICK_COUNT - 1))].date;
+      if (out[out.length - 1] !== date) out.push(date);
+    }
     return out;
   }, [rows]);
 
@@ -199,9 +216,9 @@ export function VisibilityChart({
 
       <div className="px-2 pt-2 pb-4">
         {loading ? (
-          <Skeleton className="mx-3 h-[264px]" />
+          <Skeleton className="mx-3 h-[288px]" />
         ) : rows.length === 0 ? (
-          <div className="flex h-[264px] items-center px-5 text-sm text-ink-muted">
+          <div className="flex h-[288px] items-center px-5 text-sm text-ink-muted">
             No runs in this window yet.
           </div>
         ) : (
@@ -212,11 +229,16 @@ export function VisibilityChart({
               <XAxis
                 dataKey="date"
                 ticks={ticks}
-                tickFormatter={formatDay}
+                tickFormatter={formatRunDay}
                 tickLine={false}
                 axisLine={false}
+                // interval={0} stops Recharts dropping labels it thinks collide;
+                // the angle is what makes room for them.
+                interval={0}
+                angle={-45}
+                textAnchor="end"
                 tick={{ fill: INK_FAINT, fontSize: 11 }}
-                tickMargin={10}
+                tickMargin={8}
                 height={X_AXIS_H}
               />
               <YAxis
