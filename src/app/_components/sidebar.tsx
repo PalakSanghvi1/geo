@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { PROJECT } from '@/lib/config';
+import { Logo } from './logo';
 import { cx, FieldLabel } from './ui';
 import { authClient, useSession } from '@/lib/auth-client';
 
@@ -70,7 +71,7 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 flex h-screen w-[212px] shrink-0 flex-col border-r border-hairline">
       <div className="flex items-center gap-2 px-5 py-5">
-        <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
+        <Logo size={18} />
         <span className="font-mono text-[13px] font-semibold tracking-[0.18em]">GEO</span>
       </div>
 
