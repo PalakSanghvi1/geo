@@ -57,6 +57,104 @@ Append, don't rewrite. One line each, newest at the bottom.
 - **pm2 boot persistence** enabled (`pm2 startup systemd` + `pm2 save`, unit `pm2-root`
   is `enabled`), so both processes come back after a VPS reboot.
 
+## Phase 0 + C1 — Dev C
+
+- **Slack workspace is a real company workspace** (`Sangforth Technologies`), not a
+  throwaway `geo-hackathon` one. Bot scopes are exactly the three the plan calls for:
+  `chat:write`, `commands`, `app_mentions:read`. `channels:read` is deliberately not
+  granted, so `conversations.info` returns `missing_scope` — harmless, nothing reads it.
+  Because the workspace is real, the bot only ever posts to `SLACK_CHANNEL_ID`.
+- **Cron does not call `executeRun` directly.** The daily schedule inserts a
+  `run_requests` row like everything else and lets the poller execute it, so scheduled,
+  dashboard and Slack runs share one code path (BUILD_PLAN §1.5) instead of two.
+- **Only `manual` runs post a completion message to Slack.** Scheduled runs are covered
+  by the daily digest (Phase C2); posting both would double up in `#geo` every morning.
+- **`src/worker/run-bridge.ts`** wraps Workstream A's runner behind a dynamic import with
+  a stub fallback, so the worker boots and the full request → claim → execute → notify
+  path is testable before A merges. The import specifier is held in a variable on purpose:
+  a literal path fails `tsc --noEmit` while `src/pipeline/runner.ts` does not exist.
+  Stub runs are written as `status='partial'` with zero calls so they can never be
+  mistaken for collected data on the Runs page.
+- **No top-level `await` in worker or integration code.** The package is CommonJS (no
+  `"type": "module"`), and `tsx`/esbuild rejects top-level await in CJS output. Wrap in
+  an async `main()`.
+- **One Socket Mode worker at a time.** A laptop worker and the VPS worker share the same
+  app token, and Slack delivers each command to only one connection — so stop the local
+  `npm run worker` before the VPS runs the same code, or slash commands answer
+  intermittently.
+- **Run requests are claimed in a transaction** (`SELECT … then UPDATE … 'picked_up'`)
+  and the poller refuses to start a second run while one is in flight.
+
+## Phase C2 — Dev C
+
+- **`scripts/seed-linear.ts` sits in Workstream A's directory on purpose.** §2 gives
+  `scripts/` to Dev A, but §8 Phase C2 names this exact path as a Dev C deliverable and
+  `package.json` already wires `npm run seed-linear` to it. Flagging it so the boundary
+  looks deliberate at merge time — Dev C touches no other file under `scripts/`.
+- **Linear personal API keys go in `Authorization` raw, with no `Bearer ` prefix.**
+  With the prefix every request fails authentication. True for the seed script and the
+  scan alike.
+- **Anthropic strict tool schemas reject `maxItems` on an array** (HTTP 400:
+  "for 'array' type, property 'maxItems' is not supported"). The "at most 5 suggestions"
+  cap is therefore enforced three ways: in the prompt, in the schema `description`, and
+  with a hard `.slice(0, 5)` on the result.
+- **The digest posts on every completed queued run, and there is no separate daily
+  digest cron.** The daily cron queues a run; that run's completion posts the digest.
+  Wiring a second timed digest would double-post every morning. Backfill calls the
+  runner directly and never enters the queue, so replaying history posts nothing.
+- **Suggestion dedupe key** = text trimmed, internal whitespace collapsed, lowercased,
+  compared across every row regardless of source or status, and within the incoming
+  batch too. A re-scan of an unchanged roadmap therefore inserts nothing.
+- **`buildDigest()` is the single Slack body.** Run completions post the digest plus a
+  one-line footer naming the run, rather than a second, differently-worded summary that
+  could disagree with it.
+- **The digest's `date` argument labels only.** `metrics.ts` exposes no per-date query,
+  so the numbers are always the latest day with answers; when the requested date differs,
+  the digest says so rather than implying it is historical.
+- **The stub run-bridge is deleted now that `src/pipeline/runner.ts` is merged.** The
+  worker imports `executeRun` directly and uses the returned `RunSummary`. Keeping the
+  dynamic-import fallback would have meant a typo could silently stub a real run — the
+  opposite of what the reliability story needs.
+- **`src/integrations/slack.ts` does not import from `src/pipeline/`.** It declares the
+  fields of `RunSummary` it needs as a structural interface, so integrations depend on a
+  shape rather than on Workstream A's internals.
+- **Run completions post a per-provider coverage line** (`anthropic 45/45 ✅ ·
+  openai 44/45 ⚠️`) from the runner's own `byProvider` counts. This is where a degraded
+  run becomes visible without opening the dashboard.
+- **Gap flagged, not filled: there is no API route that pushes a suggestion to Linear.**
+  `src/app/api/suggestions/route.ts` handles approve/dismiss only and says pushing to
+  Linear is Workstream C's job, but the route lives in Workstream B's directory.
+  `createIssue(suggestion)` is exported and ready; someone who owns `src/app/` needs to
+  add the endpoint that calls it, or the demo's "push to Linear" button has no backend.
+
+## Phase C3 — Dev C
+
+- **Notion rejects any URL longer than 2000 characters**, and it is Notion's servers that
+  fetch the QuickChart image. With ordinary `JSON.stringify` the plan's "Lemma + top 4
+  competitors" chart came to ~2500 characters and had to be trimmed to 2 competitors.
+  Two changes made the specified chart fit: the config is serialized in QuickChart's
+  JSON5-tolerant dialect (unquoted keys, single quotes — `encodeURIComponent` expands
+  every `"` to `%22` but leaves `'` alone), and chart values are rounded to whole percent
+  because the exact figures are in the scoreboard table. Result: **1870 characters with
+  the longest real brand name**, verified rendering as a 230 KB PNG. The report still
+  degrades 4 → 3 → 2 → 1 → no image if a future chart outgrows the budget.
+- **QuickChart's default renderer is Chart.js v2** (`options.title`, `options.legend`,
+  `options.scales.yAxes`). Modernising those keys to v3/v4 syntax silently drops the axes
+  and the title unless `&v=3` is also appended to the URL.
+- **A `strict: true` tool schema whose array holds bare strings is unreliable.** One live
+  Sonnet call in four returned the degenerate `{"takeaways": ["takeaways"]}` — the field
+  name as the only item. Wrapping each item in an object with a named `text` field fixed
+  it across 8 consecutive runs. Worth applying to any other forced-tool call in the repo
+  that wants a list of strings.
+- **The weekly report is labelled with the week it covers, not the day it runs.** The
+  Monday cron resolves the previous Sunday, so a report published on Monday the 14th is
+  titled "week ending 2026-09-13".
+- **`publishWeeklyReport` degrades rather than aborting.** If the narrative model call
+  fails the page still publishes without takeaways; an empty database produces a shorter
+  page (no table, no image — Notion rejects a table with no rows) instead of a crash.
+- **Unverified until the first real publish:** that `pages.create` accepts the inline
+  `table` + `table_row` children in one call. If it rejects them, create the page without
+  the table and append it with `blocks.children.append`.
 ## Phase B1 — Dev B
 
 - **Light theme, per the mockups.** The Phase B1 bullet in the plan says "dark theme

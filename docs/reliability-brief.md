@@ -49,11 +49,16 @@ plain prefix match and serve a 403 instead of the app.
 
 **Implementation status (honest).** The runner, the three provider adapters, the
 extractor, the metrics layer, the read/trigger API routes and the eval harness are
-implemented. `src/worker/index.ts` is still the Phase-0 placeholder that proves the pm2
-process boots and can reach the database — the cron schedule, the `run_requests` poller
-and the Slack bot are Workstream C's and are not yet in the repo, and neither is
-`src/integrations/`. Runs today are driven by `npm run run-once` and `npm run backfill`,
-which call the same `executeRun()` the poller will call.
+implemented. `src/worker/index.ts` now replaces the Phase-0 placeholder: the cron
+schedule, the `run_requests` poller and the Slack Socket Mode bot are in the repo, as is
+`src/integrations/` (Slack, Notion, Linear, QuickChart). Runs can therefore be driven by
+the poller, by `npm run run-once` or by `npm run backfill` — all of which call the same
+`executeRun()`.
+
+One gap remains at the seam between workstreams: **no API route pushes a suggestion to
+Linear**. `createIssue()` is implemented and exported, and
+`src/app/api/suggestions/route.ts` handles approve/dismiss, but nothing connects them, so
+the "push a recommendation back to Linear" step has no HTTP entry point yet.
 
 ---
 
@@ -151,6 +156,66 @@ and the top recent failure messages, so a bad demo can be diagnosed over SSH in 
 command; `npm run smoke` exercises one real call per provider plus one extraction to tell
 a pipeline fault from a provider outage.
 
+
+### Integrations and the worker loop (Workstream C)
+
+**The worker is the only thing that runs a run.** `src/worker/index.ts` polls
+`run_requests` every 5 seconds. A pending row is claimed inside a SQLite transaction
+(`SELECT … LIMIT 1` then `UPDATE … 'picked_up'`), so a restart mid-run, or a second
+worker started by mistake, cannot execute the same request twice. An in-process guard
+refuses to begin a second run while one is in flight — 135 answer calls already saturate
+the provider budget, and two overlapping runs would corrupt the per-day coverage figures.
+
+**The daily cron queues; it does not execute.** The 09:00 schedule inserts a
+`run_requests` row exactly like the dashboard button and `/geo run`. That is what makes
+the "one code path" claim above true for scheduled runs as well, rather than true for
+everything except the path that actually runs every morning.
+
+**Slack needs no inbound URL.** The bot runs in Socket Mode, an outbound websocket, so
+nothing is exposed through nginx and no request-signing secret is in play. Bolt
+reconnects on its own. The worker starts with Slack *disabled* rather than failing when
+the tokens are absent, so a missing credential costs the digest, not the run loop.
+`postToChannel` never throws and diagnoses the one failure that looks like a bug:
+`not_in_channel` is reported as "run `/invite @geo` in that channel".
+
+**One Socket Mode connection at a time.** Slack delivers each command to a single
+connection, so a laptop worker running alongside the VPS worker makes slash commands
+answer intermittently. This is an operational rule, not a code defect: stop the local
+worker before a demo.
+
+**Every number in Slack and Notion comes from `src/lib/metrics.ts`.** The digest and the
+weekly report call `getOverview()`, `getSignals()` and `getSources()` and do nothing but
+format the result. This is deliberate: a second implementation of "visibility" would let
+the Slack digest and the dashboard disagree on screen during the demo, which reads as a
+correctness failure whichever number is right.
+
+**Run completions report per-provider coverage.** The Slack post carries the runner's own
+`byProvider` counts (`anthropic 45/45 ✅ · openai 44/45 ⚠️`), so a degraded run announces
+itself where the team already is, without anyone opening the dashboard.
+
+**A weekly job cannot take the worker down.** Every cron callback is wrapped, and
+`runLinearScan()`, `createIssue()` and `publishWeeklyReport()` never throw — missing
+credentials, an API error or an empty database are logged and return `0` / `null`. The
+Notion report degrades rather than aborting: if the narrative model call fails the page
+publishes without its takeaways, and an empty database yields a shorter page instead of a
+crash (Notion rejects a table with no rows).
+
+**Two external limits worth recording.** Notion rejects any URL over 2000 characters, and
+Notion's servers are what fetch the QuickChart trend image. Serialized as ordinary JSON
+the specified chart — the tracked brand plus its top 4 competitors over 14 days — came to
+~2500 characters and had to be silently trimmed to 2 competitor lines. Emitting the chart
+config in QuickChart's JSON5 dialect (unquoted keys, single quotes, since
+`encodeURIComponent` expands `"` to `%22` but leaves `'` alone) and rounding plotted
+values to whole percent brings it to ~1870, so the chart specified is the chart published.
+The report still steps down to 3, 2, 1 or no image if a future chart outgrows the budget.
+
+**A structured-output failure mode we hit and fixed.** A `strict: true` tool schema whose
+array holds bare strings is not reliable: one live Sonnet call in four returned
+`{"takeaways": ["takeaways"]}` — the field name as the only element. Wrapping each item in
+an object with a named field fixed it across eight consecutive runs, with a minimum-length
+filter as a backstop. The same shape is worth applying to any forced-tool call that wants
+a list of strings.
+
 ---
 
 ## 3. Evaluation
@@ -241,9 +306,15 @@ set. Whatever changed between passes belongs in this section.
 - **Single-tenant demo, no authentication.** One brand, one SQLite file, no user accounts,
   no tenancy boundary, and the deployment is plain HTTP with no domain or TLS. Anyone who
   can reach the IP can read the dashboard and press "Run now".
-- **Not everything in `BUILD_PLAN.md` is built.** The worker loop, the Slack/Notion/Linear
-  integrations and the dashboard pages are not in the repo at the time of writing (see
-  section 1). This brief describes what the code does, not what the plan intends.
+- **Not everything in `BUILD_PLAN.md` is built.** The worker loop and the
+  Slack/Notion/Linear integrations are now in the repo; the dashboard pages and the API
+  route that pushes a suggestion to Linear are not (see section 1). This brief describes
+  what the code does, not what the plan intends.
+- **No Notion page has been published yet.** `publishWeeklyReport()` is implemented and
+  its blocks have been validated offline, but it has never been sent to the Notion API,
+  because there is no collected history to report on. The first real publish should be
+  watched: if `pages.create` rejects the inline `table` children, the fix is to create the
+  page and append the table with `blocks.children.append`.
 - **Prompts are unsteered.** The customer question is sent as-is with no system prompt, so
   what is measured is what the model says unprompted — but it also means we do not control
   answer format, and format variation is part of the extraction difficulty.
