@@ -5,7 +5,13 @@
 
 export type ProviderId = 'anthropic' | 'openai' | 'gemini';
 
-export type RunTrigger = 'scheduled' | 'manual' | 'backfill';
+/**
+ * 'synthetic' rows are FABRICATED, not collected. They exist so the trend chart has
+ * depth before enough real days accumulate. They are tagged here, at the data layer,
+ * so provenance travels with the row and no screen can present them as measurements
+ * by accident. Everything else is a real provider response.
+ */
+export type RunTrigger = 'scheduled' | 'manual' | 'backfill' | 'synthetic';
 export type RunStatus = 'running' | 'complete' | 'partial' | 'failed';
 export type AnswerStatus = 'ok' | 'error';
 export type SuggestionKind = 'query' | 'competitor';

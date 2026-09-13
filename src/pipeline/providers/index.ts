@@ -25,8 +25,20 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * An exhausted balance is NOT a rate limit, even though OpenAI reports it as 429.
+ * Retrying it wastes the whole backoff schedule on a condition that only a human
+ * with a credit card can clear, and it buries the real reason under "rate limited".
+ */
+export function isCreditExhausted(err: unknown): boolean {
+  return /no credits remaining|credit balance is too low|billing|insufficient[_ ]quota|exceeded your current quota.*billing/i.test(
+    messageOf(err)
+  );
+}
+
 /** Timeouts, rate limits and server faults are worth another attempt; 400s are not. */
 export function isRetryable(err: unknown): boolean {
+  if (isCreditExhausted(err)) return false;
   const status = statusOf(err);
   if (status === 429 || (status !== undefined && status >= 500)) return true;
   if (status !== undefined) return false;
@@ -80,12 +92,21 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
     } catch (err) {
       lastError = err;
 
-      // Two repairable conditions, both fixed by switching model id rather than waiting:
-      //   - the primary id is rejected outright
-      //   - the primary is rate-limited. Quota on these APIs is per-model-tier, so a
-      //     preview/Pro model with no quota left says nothing about a Flash-tier model.
-      //     Backing off would burn the whole retry budget on a model that has none.
-      if ((isUnknownModel(err) || statusOf(err) === 429) && !usedFallback) {
+      // Switching model id repairs two conditions, but only where the quota is scoped
+      // to the model:
+      //   - the primary id is rejected outright (any provider)
+      //   - the primary is rate-limited AND quota is per-model-tier, which is true of
+      //     Gemini (a Pro model out of quota says nothing about Flash) but NOT of
+      //     Anthropic or OpenAI, where 429 is account-wide. Swapping model there just
+      //     burns the fallback and retries into the same limit — which is exactly what
+      //     happened during the first full backfill: gpt-5.6-terra 429'd, we fell back
+      //     to gpt-5, and gpt-5 429'd too. Those providers must back off instead.
+      // A dead balance is not repairable by switching model — every model on the
+      // account is equally unpayable. Fail fast and let the run record why.
+      if (isCreditExhausted(err)) break;
+
+      const quotaIsPerModel = provider === 'gemini';
+      if ((isUnknownModel(err) || (quotaIsPerModel && statusOf(err) === 429)) && !usedFallback) {
         modelId = choice.fallback;
         usedFallback = true;
         attempt--; // the swap is a repair, not a wasted attempt
@@ -96,7 +117,9 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
 
       // Retries are the main hidden cost in a slow run: a throttled provider looks
       // identical to a slow one from the outside. Say so out loud.
-      const base = RUNNER.backoffMs[Math.min(attempt, RUNNER.backoffMs.length - 1)];
+      const schedule =
+        statusOf(err) === 429 ? RUNNER.rateLimitBackoffMs : RUNNER.backoffMs;
+      const base = schedule[Math.min(attempt, schedule.length - 1)];
       const wait = Math.round(base * (0.5 + Math.random())); // jitter, so lanes desynchronise
       console.warn(
         `  [retry] ${provider} ${modelId} status=${statusOf(err) ?? 'net'} ` +

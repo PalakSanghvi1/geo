@@ -18,6 +18,7 @@
     "smoke": "tsx scripts/smoke-providers.ts",
     "status": "tsx scripts/status.ts",
     "reset-runs": "tsx scripts/reset-runs.ts",
+    "seed-synthetic": "tsx scripts/seed-synthetic.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

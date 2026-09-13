@@ -97,7 +97,7 @@ export async function executeRun(
     providers.map((provider) =>
       pool(
         jobs.filter((j) => j.provider === provider),
-        RUNNER.concurrencyPerProvider,
+        RUNNER.concurrencyPerProvider[provider] ?? 4,
         async (job) => {
           const outcome = await runJob(runId, job, brands, brandIdByName);
           byProvider[provider][outcome ? 'ok' : 'failed']++;

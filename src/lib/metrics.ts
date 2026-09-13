@@ -15,7 +15,7 @@
  * `coverage` reports what fraction of attempted calls landed so the UI can badge it.
  */
 import { all, get, parseJson } from './db';
-import { ALERT_THRESHOLD_PTS, NEW_COMPETITOR_MIN_ANSWERS } from './config';
+import { ALERT_THRESHOLD_PTS, NEW_COMPETITOR_MIN_ANSWERS, SEED_BRANDS } from './config';
 import type {
   Citation,
   CoveragePoint,
@@ -246,6 +246,13 @@ export function getSources(days = 14, provider: ProviderFilter = 'all'): SourceR
     params
   );
 
+  // Competitor-owned detection needs the brands' real domains, not just their names:
+  // LangSmith's docs live on smith.langchain.com, which contains nothing derivable
+  // from "LangSmith". Name matching stays as a fallback for brands whose domain is
+  // their name (langfuse.com, arize.com).
+  const competitorDomains = SEED_BRANDS.filter((b) => !b.isSelf).flatMap((b) =>
+    (b.domains ?? []).map((d) => d.toLowerCase())
+  );
   const brands = all<{ name: string }>(`SELECT name FROM brands WHERE is_self = 0`).map((b) =>
     b.name.toLowerCase().replace(/[^a-z0-9]/g, '')
   );
@@ -265,10 +272,14 @@ export function getSources(days = 14, provider: ProviderFilter = 'all'): SourceR
   return [...byDomain.entries()]
     .map(([domain, entry]) => {
       const flat = domain.replace(/[^a-z0-9]/g, '');
+      // Suffix match so any subdomain of a competitor domain counts too.
+      const ownedByDomain = competitorDomains.some(
+        (d) => domain === d || domain.endsWith(`.${d}`)
+      );
       return {
         domain,
         citationCount: entry.count,
-        isCompetitorOwned: brands.some((b) => b.length > 3 && flat.includes(b)),
+        isCompetitorOwned: ownedByDomain || brands.some((b) => b.length > 3 && flat.includes(b)),
         urls: [...entry.urls.entries()]
           .map(([url, count]) => ({ url, count }))
           .sort((a, b) => b.count - a.count)
