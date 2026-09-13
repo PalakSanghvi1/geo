@@ -106,10 +106,3 @@ filter reports a gap rather than a zero.
 ## Demo
 
 Two-minute walkthrough: **https://youtu.be/m4MiQtj7N0s**
-
-## Participants
-
-- Palak.Sanghvi@gmail.com
-- Pranav.Sanghvi1@gmail.com
-- ThomasBamforth2210@gmail.com
-- CatDesouza77@gmail.com
