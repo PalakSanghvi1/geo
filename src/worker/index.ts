@@ -211,15 +211,26 @@ async function main(): Promise<void> {
     .get() as { n: number };
   log('worker', `up — ${pending.n} pending run request(s)`);
 
-  await startSlack().catch((error) => {
-    logError('worker', 'slack failed to start — continuing without it', error);
-    return false;
-  });
-
+  // Cron and the poller start FIRST, and Slack is explicitly not awaited.
+  //
+  // Socket Mode does not reject when Slack is unreachable — @slack/socket-mode
+  // retries the websocket with backoff, so `start()` can hang indefinitely rather
+  // than fail. Awaiting it here would mean that losing outbound access to Slack at
+  // boot silently leaves the worker with no cron and no poller, while pm2 still
+  // reports it `online`. The dashboard's "Run now" and `/geo run` would queue
+  // run_requests rows that nothing ever executes, with no error anywhere.
+  //
+  // Runs are the product; Slack is a notification channel. The product must come up
+  // even when the notification channel cannot.
   scheduleJobs();
 
   setInterval(() => void poll(), POLL_INTERVAL_MS);
   log('worker', `polling run_requests every ${POLL_INTERVAL_MS / 1000}s`);
+
+  void startSlack().catch((error) => {
+    logError('worker', 'slack failed to start — continuing without it', error);
+    return false;
+  });
 }
 
 void main();
