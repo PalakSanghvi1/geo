@@ -292,9 +292,28 @@ set. Whatever changed between passes belongs in this section.
 
 ## 4. Honesty notes
 
-- **The answers are real.** Every answer in the database was collected live from Claude,
-  GPT or Gemini with that provider's web search / grounding tool enabled, and is stored
-  verbatim with its citations, latency and the exact model id used.
+- **Most of the visible history is fabricated, and it is labelled as such.** Of the 90 days
+  currently in the database, **2 are real and 88 are synthetic** (`npm run seed-synthetic`).
+  Months of history cannot be collected in a one-day build, so it was generated. Provenance
+  is carried in the data rather than in a disclaimer someone has to remember:
+  - every fabricated run is tagged `trigger = 'synthetic'`, which the Runs page displays;
+  - every fabricated answer body opens with `[SYNTHETIC — fabricated for trend history, not
+    a model response]`, so clicking one says so itself;
+  - the generator never overwrites a date that already has a real run.
+
+  Trajectories are anchored to each brand's real measured visibility and real mean
+  sentiment, so the fabricated past converges on the observed present rather than
+  contradicting it — but it is invented, and the shape of the trend lines is not evidence
+  of anything. Anyone presenting this must say the history is illustrative.
+  `npm run seed-synthetic -- --purge --yes` removes all of it.
+- **Source analysis is not fabricated.** Synthetic answers are written with **no citations
+  at all**, so every domain and count on the Sources page comes from genuinely retrieved
+  results. This was a deliberate constraint: a fabricated citation graph would corrupt the
+  one analysis a user would most reasonably act on.
+- **The real answers are real.** Every answer from a real run was collected live from
+  Claude, GPT or Gemini with that provider's web search / grounding tool enabled, and is
+  stored verbatim with its citations, latency and the exact model id used. Real days are
+  identifiable by `trigger` — use one of those when demonstrating answer detail.
 - **The dates are simulated.** Trend history is produced by `npm run backfill`, which runs
   the real pipeline repeatedly on one day and labels each run with a past `run_date`. A
   one-day build cannot wait a week for genuine daily history. Day-to-day variation in the

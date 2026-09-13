@@ -122,9 +122,14 @@ function main() {
             a.answer_text AS answer_text
        FROM answers a
        JOIN queries q ON q.id = a.query_id
+       JOIN runs r ON r.id = a.run_id
       WHERE a.status = 'ok'
         AND a.answer_text IS NOT NULL
         AND TRIM(a.answer_text) <> ''
+        -- Synthetic answers are templated text listing their own brands, so scoring
+        -- the extractor against them would measure nothing but string matching and
+        -- report a flattering, meaningless number. Only real model output counts.
+        AND r.trigger != 'synthetic'
       ORDER BY a.id`
   );
 
