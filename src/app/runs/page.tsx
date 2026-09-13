@@ -17,7 +17,7 @@ import {
   cx,
 } from '@/app/_components/ui';
 import { formatRunDay } from '@/app/_lib/dates';
-import { triggerRun, useRuns } from '@/app/_lib/fetcher';
+import { triggerRun, useEval, useRuns } from '@/app/_lib/fetcher';
 import { ANSWER_MODELS } from '@/lib/config';
 import type { Run, RunRow, RunStatus } from '@/lib/types';
 
@@ -222,6 +222,69 @@ function TableSkeleton() {
   );
 }
 
+/**
+ * How accurate the extractor is, measured rather than asserted.
+ *
+ * Every number this product reports — visibility, position, sentiment — comes
+ * out of one extraction call per answer, so this is the figure they all rest on.
+ * It was being scored by `npm run eval` and then shown nowhere, which left the
+ * claim living in a terminal while the dashboard stayed silent about it.
+ *
+ * Renders nothing when the harness has not been run: an unscored extractor
+ * should look unscored, not perfect.
+ */
+function ExtractionAccuracy() {
+  const { data, loading } = useEval();
+
+  if (loading) {
+    return (
+      <Card className="px-5 py-4">
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="mt-3 h-6 w-64" />
+      </Card>
+    );
+  }
+  if (!data) return null;
+
+  const pct = (v: number | null) => (v === null ? '—' : `${(v * 100).toFixed(1)}%`);
+  const scored = new Date(data.generatedAt ?? '');
+  const stamp = Number.isNaN(scored.getTime()) ? null : formatRunDay(scored.toISOString().slice(0, 10));
+
+  const figures = [
+    { label: 'Precision', value: pct(data.precision), hint: 'of extracted mentions were correct' },
+    { label: 'Recall', value: pct(data.recall), hint: 'of real mentions were found' },
+    { label: 'Position', value: pct(data.positionAccuracy), hint: 'ranked in the right order' },
+    { label: 'Sentiment', value: pct(data.sentimentAgreement), hint: 'agreed with the label' },
+  ];
+
+  return (
+    <Card className="px-5 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-[15px] font-medium">Extraction accuracy</h2>
+        <p className="text-[12px] text-ink-muted">
+          {data.answersScored} hand-labelled answers
+          {data.extractionFailures === 0 ? ' · no extraction failures' : ` · ${data.extractionFailures} failed`}
+          {stamp ? ` · scored ${stamp}` : ''}
+        </p>
+      </div>
+      <p className="mt-1 max-w-2xl text-[13px] text-ink-muted">
+        Every metric on this dashboard is downstream of one extraction call per answer, so this is
+        what they all rest on.
+      </p>
+
+      <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {figures.map((f) => (
+          <div key={f.label}>
+            <dt className="field-label">{f.label}</dt>
+            <dd className="numeric mt-1 text-[22px] leading-none font-semibold">{f.value}</dd>
+            <p className="mt-1.5 text-[12px] text-ink-muted">{f.hint}</p>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
+}
+
 function RunRow({ run }: { run: Run }) {
   return (
     <tr className={cx(ROW, run.status === 'running' && 'bg-accent-wash')}>
@@ -310,6 +373,8 @@ export default function RunsPage() {
                 ? ANSWER_MODELS.map((model) => <HealthSkeleton key={model.provider} />)
                 : health.map((item) => <HealthCard key={item.provider} health={item} />)}
             </div>
+
+            <ExtractionAccuracy />
 
             <Card>
               {!loading && runs.length === 0 ? (

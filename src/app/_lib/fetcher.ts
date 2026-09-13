@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   AnswerDetailResponse,
+  EvalSummary,
   OverviewResponse,
   PromptRow,
   RunRow,
@@ -113,6 +114,10 @@ export function useOverview(days: number, provider: ProviderParam): AsyncState<O
 
 export function useRuns(pollMs = 0): AsyncState<RunRow[]> {
   return useResource('runs', () => getJson<RunRow[]>('/runs'), pollMs);
+}
+
+export function useEval(): AsyncState<EvalSummary | null> {
+  return useResource('eval', () => getJson<EvalSummary | null>('/eval'));
 }
 
 export function usePrompts(): AsyncState<PromptRow[]> {
