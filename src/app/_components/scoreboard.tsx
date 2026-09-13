@@ -84,7 +84,10 @@ export function Scoreboard({
   deltaWindowDays?: number;
   loading?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // Open by default: the whole tracked field is the point of this table, and
+  // the chart above deliberately plots only the top few. The control stays so
+  // the list can be collapsed back.
+  const [expanded, setExpanded] = useState(true);
 
   if (loading) {
     return (

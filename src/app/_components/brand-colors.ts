@@ -7,7 +7,14 @@
  * handed to Recharts, which writes them into SVG attributes, and Tailwind can
  * drop theme variables it sees no utility for.
  */
-export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
+/**
+ * Six hues: the self brand plus five competitors, which is the most the chart
+ * ever draws. Validated as a categorical set — lightness band, chroma floor,
+ * CVD separation and normal-vision floor all pass on the light surface. Three
+ * of them sit under 3:1 against the surface, which is acceptable only because
+ * every line carries a direct label at its end.
+ */
+export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#8b5cf6'];
 export const SERIES_MUTED = '#b8b7b0';
 
 export const INK = '#0b0b0b';
@@ -17,17 +24,14 @@ export const INK_FAINT = '#9d9c95';
 export const HAIRLINE = 'rgba(11,11,11,0.08)';
 
 /**
- * How many brands get a hue of their own.
+ * How many brands the chart plots: the five most visible, plus the self brand
+ * when it is not already among them.
  *
- * Five, and not more, because the count is measured rather than chosen: a
- * ten-hue categorical palette fails the colour checks outright (a brown and a
- * red land 1.8 ΔE apart under protanopia and 14.6 to full colour vision, below
- * the readable floor), and eight is worse still. Categorical hues are assigned
- * in fixed order and never generated to fill a longer list.
- *
- * Brands past this point still appear on the chart — see `chartBrands` — drawn
- * in the muted grey and identified by the label at the end of their line, so
- * identity never rests on a colour nobody can name.
+ * Five and not ten, because the limit is measured rather than chosen — a
+ * ten-hue categorical palette fails outright (a brown and a red land 1.8 ΔE
+ * apart under protanopia and 14.6 to full colour vision, below the readable
+ * floor), and eight is worse. Every brand still appears in the scoreboard
+ * below the chart, which is where the full field belongs.
  */
 export const MAX_SERIES = 5;
 
@@ -59,7 +63,10 @@ export function assignBrandColors(scoreboard: BrandLike[]): Map<string, string> 
 }
 
 /**
- * The brands that earn a line on the chart: the self brand plus the top competitors.
+ * The brands that earn a line on the chart: the five most visible, plus the
+ * self brand when it has fallen outside them. Being beaten is exactly when you
+ * most need to see your own line, so it is never dropped — it just arrives as a
+ * sixth series rather than displacing a competitor.
  *
  * Colours are assigned over the WHOLE scoreboard and only then filtered by
  * `drawable`. Assigning over the filtered list instead would shift every
@@ -70,17 +77,14 @@ export function assignBrandColors(scoreboard: BrandLike[]): Map<string, string> 
 export function chartBrands(
   scoreboard: BrandLike[],
   drawable: (brand: string) => boolean = () => true
-): Array<BrandLike & { color: string; keyed: boolean }> {
+): Array<BrandLike & { color: string }> {
   const colors = assignBrandColors(scoreboard);
   const present = scoreboard.filter((row) => drawable(row.brand));
-  const self = present.find((row) => row.isSelf);
-  const others = present.filter((row) => !row.isSelf);
-  const chosen = self ? [self, ...others] : others;
 
-  return chosen.map((row) => {
-    const color = colors.get(row.brand) ?? SERIES_MUTED;
-    // `keyed` marks the brands with a hue of their own, so the legend can show
-    // which identities colour actually carries.
-    return { ...row, color, keyed: color !== SERIES_MUTED };
-  });
+  // `present` arrives sorted by visibility, so the head of it is the top five.
+  const top = present.slice(0, MAX_SERIES);
+  const self = present.find((row) => row.isSelf);
+  const chosen = self && !top.some((row) => row.isSelf) ? [...top, self] : top;
+
+  return chosen.map((row) => ({ ...row, color: colors.get(row.brand) ?? SERIES_MUTED }));
 }
