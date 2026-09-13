@@ -56,3 +56,37 @@ Append, don't rewrite. One line each, newest at the bottom.
   ran `sed -i 's/\r$//' .env` on the VPS. Re-run that after any future upload from Windows.
 - **pm2 boot persistence** enabled (`pm2 startup systemd` + `pm2 save`, unit `pm2-root`
   is `enabled`), so both processes come back after a VPS reboot.
+
+## Phase B1 — Dev B
+
+- **Light theme, per the mockups.** The Phase B1 bullet in the plan says "dark theme
+  is fine to hardcode", but the section 7 design reference and all four PNGs in
+  `docs/mockups/` specify the light theme (`#F6F5F2` canvas, `#FCFCFB` cards). The
+  mockups win — they are the visual spec the demo is judged against.
+- **No shadcn/ui.** Phase 0 never ran `shadcn init` (no `components.json`), and these
+  four screens need about eight primitives. Hand-rolled in `src/app/_components/ui.tsx`
+  against the mockup tokens rather than adding a component registry mid-build.
+- **Design tokens live in `src/app/globals.css`** as a Tailwind 4 `@theme` block, plus
+  two custom utilities: `overline` (IBM Plex Mono label caps) and `numeric`
+  (tabular figures, so polled numbers don't jitter).
+- **Mock mode is opt-in, not opt-out.** `NEXT_PUBLIC_USE_MOCK=1` renders
+  `src/lib/mock.ts`; unset (the VPS default) always calls the real API routes, and
+  mock mode paints a MOCK DATA badge in the header. A dashboard that can quietly
+  show invented numbers during judging is worse than one that errors.
+- **The dashboard fetches client-side** from `/geo/api/*`. The `basePath` has to be
+  written into the fetch URLs (`src/app/_lib/fetcher.ts`) — Next rewrites `<Link>`
+  and asset paths, not `fetch`. Filters are client state, and the Runs page polls, so
+  one client-side data path covers every screen.
+- **Brand → colour lives in `src/app/_components/brand-colors.ts`**, read by both the
+  chart and the scoreboard. Two independent colour orderings would silently mislabel
+  which line is which.
+- **The chart draws five brands** (self + top four competitors); ten lines is unreadable
+  and the end-of-line labels collide. The scoreboard carries the full list.
+- **The backfilled ↔ live boundary is derived**, not hardcoded: the earliest run whose
+  trigger is not `backfill`, read from `/api/runs`. It moves on its own as live runs
+  land during judging.
+- **Stat card deviation — "Avg position".** The mockup's sub-line reads "↑ from 2.6 last
+  week", but `OverviewResponse` carries no prior-period position, and section 3 freezes
+  the shape. The card shows rank instead ("#3 of 10 tracked brands"). *Dev A: adding
+  `avgPositionPrev7` to `self` would let us restore the mockup line — small change,
+  your call.*
