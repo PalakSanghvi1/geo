@@ -25,8 +25,20 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * An exhausted balance is NOT a rate limit, even though OpenAI reports it as 429.
+ * Retrying it wastes the whole backoff schedule on a condition that only a human
+ * with a credit card can clear, and it buries the real reason under "rate limited".
+ */
+export function isCreditExhausted(err: unknown): boolean {
+  return /no credits remaining|credit balance is too low|billing|insufficient[_ ]quota|exceeded your current quota.*billing/i.test(
+    messageOf(err)
+  );
+}
+
 /** Timeouts, rate limits and server faults are worth another attempt; 400s are not. */
 export function isRetryable(err: unknown): boolean {
+  if (isCreditExhausted(err)) return false;
   const status = statusOf(err);
   if (status === 429 || (status !== undefined && status >= 500)) return true;
   if (status !== undefined) return false;
@@ -89,6 +101,10 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
       //     burns the fallback and retries into the same limit — which is exactly what
       //     happened during the first full backfill: gpt-5.6-terra 429'd, we fell back
       //     to gpt-5, and gpt-5 429'd too. Those providers must back off instead.
+      // A dead balance is not repairable by switching model — every model on the
+      // account is equally unpayable. Fail fast and let the run record why.
+      if (isCreditExhausted(err)) break;
+
       const quotaIsPerModel = provider === 'gemini';
       if ((isUnknownModel(err) || (quotaIsPerModel && statusOf(err) === 429)) && !usedFallback) {
         modelId = choice.fallback;
