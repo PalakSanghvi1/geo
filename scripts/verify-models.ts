@@ -42,9 +42,10 @@ async function listOpenAI(key: string): Promise<Listing> {
 
 async function listGemini(key: string): Promise<Listing> {
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${key}`
-    );
+    // Header auth, not ?key= — keys in query strings end up in logs and proxies.
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', {
+      headers: { 'x-goog-api-key': key },
+    });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status} ${(await res.text()).slice(0, 200)}` };
     const json = (await res.json()) as { models?: Array<{ name: string }> };
     // Names come back as "models/gemini-2.5-pro" — strip the prefix.
@@ -62,10 +63,10 @@ async function probeGemini(key: string, model: string): Promise<string> {
   for (const version of ['v1beta', 'v1']) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent`,
         {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
           body: JSON.stringify({ contents: [{ parts: [{ text: 'Reply with the word OK.' }] }] }),
         }
       );

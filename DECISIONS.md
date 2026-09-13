@@ -39,12 +39,16 @@ Append, don't rewrite. One line each, newest at the bottom.
   REST list endpoint, no SDK guessing). Confirmed real: `claude-sonnet-5`,
   `gpt-5.6-terra`, `claude-haiku-4-5-20251001`. The Anthropic fallback was wrong —
   `claude-sonnet-4-5` does not exist on this account; changed to `claude-sonnet-4-6`.
-- **Gemini is blocked, not broken.** Both ListModels and GenerateContent return 403
-  `API_KEY_SERVICE_BLOCKED` (`PERMISSION_DENIED`, project 528923636441): the key carries
-  an API restriction that excludes `generativelanguage.googleapis.com`. Fix is in the
-  Google Cloud console (allow that API on the key, or mint an unrestricted key from AI
-  Studio) — no code change. Until then the runner degrades to two providers and days
-  come out as `partial`, which is the designed behaviour.
+- **Gemini: resolved.** The first key returned 403 `API_KEY_SERVICE_BLOCKED` on every
+  method — an API restriction excluding `generativelanguage.googleapis.com`, not a bad
+  key. Replaced with a new AI Studio key (the newer `AQ.`-prefixed format); all methods
+  now return 200. Gemini 3.1 Pro is published only as **`gemini-3.1-pro-preview`** — a
+  bare `gemini-3.1-pro` does not resolve — with `gemini-2.5-pro` as fallback.
+- **Gemini auth uses the `x-goog-api-key` header, never `?key=`.** Query-string keys leak
+  into access logs and proxy traces. Both work; the header is the one we ship.
+- **Final verified set (2026-09-13, `npm run verify-models` → "all ids confirmed"):**
+  `claude-sonnet-5` / `claude-sonnet-4-6`, `gpt-5.6-terra` / `gpt-5`,
+  `gemini-3.1-pro-preview` / `gemini-2.5-pro`, extraction `claude-haiku-4-5-20251001`.
 - **CRLF bit us once already.** The `.env` uploaded from Windows had CRLF endings, so
   `. ./.env` in bash left a trailing `\r` on every value and curl reported "Malformed
   input to a URL". Node is immune (our `env.ts` trims) but shell tooling is not. Added

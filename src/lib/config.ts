@@ -38,7 +38,9 @@ export const ANSWER_MODELS: ModelChoice[] = [
   {
     provider: 'gemini',
     label: 'Gemini 3.1 Pro',
-    primary: 'gemini-3.1-pro',
+    // Verified 2026-09-13: 3.1 Pro is only published under the -preview id;
+    // a bare `gemini-3.1-pro` does not resolve.
+    primary: 'gemini-3.1-pro-preview',
     fallback: 'gemini-2.5-pro',
   },
 ];
