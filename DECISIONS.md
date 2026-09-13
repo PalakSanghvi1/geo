@@ -56,3 +56,31 @@ Append, don't rewrite. One line each, newest at the bottom.
   ran `sed -i 's/\r$//' .env` on the VPS. Re-run that after any future upload from Windows.
 - **pm2 boot persistence** enabled (`pm2 startup systemd` + `pm2 save`, unit `pm2-root`
   is `enabled`), so both processes come back after a VPS reboot.
+
+## Phase 0 + C1 — Dev C
+
+- **Slack workspace is a real company workspace** (`Sangforth Technologies`), not a
+  throwaway `geo-hackathon` one. Bot scopes are exactly the three the plan calls for:
+  `chat:write`, `commands`, `app_mentions:read`. `channels:read` is deliberately not
+  granted, so `conversations.info` returns `missing_scope` — harmless, nothing reads it.
+  Because the workspace is real, the bot only ever posts to `SLACK_CHANNEL_ID`.
+- **Cron does not call `executeRun` directly.** The daily schedule inserts a
+  `run_requests` row like everything else and lets the poller execute it, so scheduled,
+  dashboard and Slack runs share one code path (BUILD_PLAN §1.5) instead of two.
+- **Only `manual` runs post a completion message to Slack.** Scheduled runs are covered
+  by the daily digest (Phase C2); posting both would double up in `#geo` every morning.
+- **`src/worker/run-bridge.ts`** wraps Workstream A's runner behind a dynamic import with
+  a stub fallback, so the worker boots and the full request → claim → execute → notify
+  path is testable before A merges. The import specifier is held in a variable on purpose:
+  a literal path fails `tsc --noEmit` while `src/pipeline/runner.ts` does not exist.
+  Stub runs are written as `status='partial'` with zero calls so they can never be
+  mistaken for collected data on the Runs page.
+- **No top-level `await` in worker or integration code.** The package is CommonJS (no
+  `"type": "module"`), and `tsx`/esbuild rejects top-level await in CJS output. Wrap in
+  an async `main()`.
+- **One Socket Mode worker at a time.** A laptop worker and the VPS worker share the same
+  app token, and Slack delivers each command to only one connection — so stop the local
+  `npm run worker` before the VPS runs the same code, or slash commands answer
+  intermittently.
+- **Run requests are claimed in a transaction** (`SELECT … then UPDATE … 'picked_up'`)
+  and the poller refuses to start a second run while one is in flight.
