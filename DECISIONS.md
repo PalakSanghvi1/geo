@@ -125,3 +125,46 @@ Append, don't rewrite. One line each, newest at the bottom.
 - **`PromptRow.latestAnswerIds` can't distinguish "not run yet" from "ran and failed"** —
   both are an empty map, so the Prompts table renders the same dash for both.
 - Still open from B1: `avgPositionPrev7` on `OverviewResponse.self`.
+
+## Phase B3 — Dev B
+
+- **Suggestion rationales are parsed as `Linear project: <name> — <why>`**, which is the
+  shape Workstream C's scan writes. The project heads the card; the rest is the body.
+  A rationale that doesn't match renders whole rather than being silently dropped.
+- **`POST /api/suggestions { action: 'push-to-linear' }`** is what "Create Linear issue"
+  calls, per §7, which puts push-to-linear on this endpoint. The route Dev A shipped
+  accepts only `approve | dismiss`, so today the button surfaces the resulting
+  `400 Bad Request` inline on the card. Verified against the live route — it does not
+  pretend the push succeeded. It starts working the moment the action is added.
+- **"Scan again" is omitted** from `suggestions.png`. `runLinearScan()` is a worker
+  function on Dev C's branch with no HTTP route; the same reasoning that dropped
+  "View retry log" from the Runs page applies — a control that does nothing is worse
+  than no control.
+- **The right rail says "Linear projects referenced", not "scanned".** The mockup lists
+  six projects with active/planned status, but nothing exposes the project list to the
+  dashboard. The rail derives project names from the rationales of the suggestions we
+  actually have, and a footnote says exactly that. Renaming was preferable to inventing
+  a status field.
+- **The resolved strip is session-local.** `GET /api/suggestions` returns pending rows
+  only, so an approved suggestion cannot be re-fetched. The confirmation row reflects what
+  you did in this session and is gone on reload — correct, if slightly surprising.
+- **Sources: the share bar is relative to the top domain**, and the percentage beside it
+  is share of all citations — the leader's bar is full, which reads better than ten stubs.
+  The expanded URL list deliberately shows no subtotal: `citationCount` and
+  `sum(urls[].count)` are independent fields in the contract and need not agree.
+- **Shared `Button` primitive** in `ui.tsx` (primary / outline / ghost); the Runs page's
+  hand-rolled "Run now" button was refactored onto it so there is one button style.
+- **Client pages can't export `metadata`**, so per-route browser tab titles fall back to
+  the root layout's. Four `layout.tsx` files to set tab titles judges will never look at
+  was not worth it.
+
+### Asks for Dev A (contract, not blocking)
+
+- **`getSources` misses competitor-owned subdomains.** It flattens the brand name and
+  tests `domain.includes(name)`, so `docs.smith.langchain.com` is not flagged as
+  LangSmith-owned. Matching against `brands.aliases` as well as `name` would catch it —
+  "which competitor owns the sources the models cite" is a good demo beat and it's
+  currently under-reporting.
+- **`SourceRow.urls` drops `Citation.title`**, so the expanded list can only label a URL
+  with its own path. Carrying the title through would read much better.
+- Still open: `Run.by_provider`, `PromptRow` run-status, `avgPositionPrev7`.

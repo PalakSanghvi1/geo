@@ -23,6 +23,8 @@ import type {
   ScoreboardRow,
   Sentiment,
   SeriesPoint,
+  SourceRow,
+  Suggestion,
 } from './types';
 
 /** Park–Miller LCG: the same day always renders the same mock numbers. */
@@ -323,4 +325,100 @@ export function mockAnswerDetail(answerId: number): AnswerDetailResponse {
     runDate,
     mentions,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Sources + suggestions (Phase B3)                                    */
+/* ------------------------------------------------------------------ */
+
+interface MockDomain {
+  domain: string;
+  count: number;
+  paths: string[];
+}
+
+const MOCK_DOMAINS: MockDomain[] = [
+  { domain: 'g2.com', count: 84, paths: ['/categories/llm-observability', '/compare/langsmith-vs-langfuse', '/products/langfuse/reviews'] },
+  { domain: 'github.com', count: 61, paths: ['/langfuse/langfuse', '/Arize-ai/phoenix', '/Helicone/helicone'] },
+  { domain: 'langfuse.com', count: 47, paths: ['/docs', '/pricing', '/blog/self-hosting'] },
+  { domain: 'docs.smith.langchain.com', count: 44, paths: ['/observability', '/evaluation'] },
+  { domain: 'news.ycombinator.com', count: 38, paths: ['/item?id=41234567', '/item?id=41889012'] },
+  { domain: 'reddit.com', count: 31, paths: ['/r/LocalLLaMA/comments/agent_monitoring', '/r/MachineLearning/comments/llm_obs'] },
+  { domain: 'latent.space', count: 27, paths: ['/p/agent-observability', '/p/evals'] },
+  { domain: 'braintrust.dev', count: 22, paths: ['/docs/guides/evals', '/blog/why-evals'] },
+  { domain: 'medium.com', count: 19, paths: ['/@aiops/monitoring-ai-agents-2026'] },
+  { domain: 'datadoghq.com', count: 17, paths: ['/product/llm-observability'] },
+  { domain: 'arize.com', count: 14, paths: ['/blog/agent-tracing', '/docs/phoenix'] },
+  { domain: 'uselemma.ai', count: 11, paths: ['/docs/quickstart', '/blog/silent-failures'] },
+  { domain: 'helicone.ai', count: 9, paths: ['/pricing'] },
+  { domain: 'wandb.ai', count: 6, paths: ['/site/weave'] },
+];
+
+/** Competitor-owned detection mirrors getSources() in src/lib/metrics.ts. */
+function looksCompetitorOwned(domain: string): boolean {
+  const flat = domain.replace(/[^a-z0-9]/g, '');
+  return BRANDS.filter((b) => !b.isSelf).some((b) => {
+    const name = b.brand.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return name.length > 3 && flat.includes(name);
+  });
+}
+
+export function mockSources(days = 14, provider = 'all'): SourceRow[] {
+  const bias = PROVIDER_BIAS[provider] ?? 1;
+  const window = days / 14;
+
+  return MOCK_DOMAINS.map((entry) => {
+    const rand = seeded(entry.domain.length * 3571 + entry.count);
+    const total = Math.max(1, Math.round(entry.count * bias * window));
+    return {
+      domain: entry.domain,
+      citationCount: total,
+      isCompetitorOwned: looksCompetitorOwned(entry.domain),
+      urls: entry.paths
+        .map((path) => ({
+          url: `https://${entry.domain}${path}`,
+          count: Math.max(1, Math.round((total / entry.paths.length) * (0.6 + rand() * 0.8))),
+        }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }).sort((a, b) => b.citationCount - a.citationCount);
+}
+
+/**
+ * Rationales follow "Linear project: <name> — <why>", which is what the
+ * Suggestions cards split on. See parseRationale() in the page.
+ */
+export function mockSuggestions(): Suggestion[] {
+  const today = isoDaysAgo(0);
+  const base = [
+    {
+      kind: 'query' as const,
+      text: 'best voice agent monitoring tools',
+      rationale:
+        "Linear project: Voice agent tracing support — You're shipping voice-agent tracing this cycle. Buyers in that space ask AI assistants for monitoring tools that support voice sessions, and none of the current 45 prompts covers it.",
+    },
+    {
+      kind: 'query' as const,
+      text: 'how to monitor computer-use agents in production',
+      rationale:
+        'Linear project: Computer-use agent monitoring — The roadmap adds trace-and-replay for browser and desktop automation agents. AI answers about this niche currently name only LangSmith and Braintrust.',
+    },
+    {
+      kind: 'competitor' as const,
+      text: 'Coval',
+      rationale:
+        "Linear project: Eval marketplace — The Eval marketplace project competes directly with eval-focused tools. Coval appeared in 4 recent answers but isn't on the tracked list.",
+    },
+  ];
+
+  return base.map((entry, i) => ({
+    id: i + 1,
+    kind: entry.kind,
+    text: entry.text,
+    rationale: entry.rationale,
+    source: 'linear',
+    status: 'pending' as const,
+    linear_issue_id: null,
+    created_at: `${today} 09:00:00`,
+  }));
 }

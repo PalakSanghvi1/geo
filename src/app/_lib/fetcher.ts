@@ -1,8 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { mockAnswerDetail, mockOverview, mockPrompts, mockRuns } from '@/lib/mock';
-import type { AnswerDetailResponse, OverviewResponse, PromptRow, Run } from '@/lib/types';
+import {
+  mockAnswerDetail,
+  mockOverview,
+  mockPrompts,
+  mockRuns,
+  mockSources,
+  mockSuggestions,
+} from '@/lib/mock';
+import type {
+  AnswerDetailResponse,
+  OverviewResponse,
+  PromptRow,
+  Run,
+  SourceRow,
+  Suggestion,
+} from '@/lib/types';
 
 /**
  * Mirrors `basePath` in next.config.ts. Browser fetches are not rewritten by
@@ -136,4 +150,60 @@ export async function triggerRun(note: string): Promise<void> {
     return;
   }
   await postJson('/trigger', { note });
+}
+
+export function useSources(days: number, provider: ProviderParam): AsyncState<SourceRow[]> {
+  return useResource(`sources:${days}:${provider}`, () =>
+    USE_MOCK
+      ? Promise.resolve(mockSources(days, provider))
+      : getJson<SourceRow[]>(`/sources?days=${days}&provider=${provider}`)
+  );
+}
+
+/** Pending suggestions only — the API does not return resolved ones. */
+export function useSuggestions(): AsyncState<Suggestion[]> {
+  return useResource('suggestions', () =>
+    USE_MOCK ? Promise.resolve(mockSuggestions()) : getJson<Suggestion[]>('/suggestions')
+  );
+}
+
+export interface SuggestionActionResult {
+  suggestion: Suggestion;
+  /** What approving inserted, if anything. `duplicate` means it already existed. */
+  created?: { table: 'queries' | 'brands' | null; id: number | null; duplicate: boolean };
+}
+
+export async function resolveSuggestion(
+  id: number,
+  action: 'approve' | 'dismiss'
+): Promise<SuggestionActionResult> {
+  if (USE_MOCK) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const suggestion = mockSuggestions().find((s) => s.id === id);
+    if (!suggestion) throw new Error(`No suggestion with id ${id}`);
+    return {
+      suggestion: { ...suggestion, status: action === 'approve' ? 'approved' : 'dismissed' },
+      created:
+        action === 'approve'
+          ? { table: suggestion.kind === 'competitor' ? 'brands' : 'queries', id: 99, duplicate: false }
+          : { table: null, id: null, duplicate: false },
+    };
+  }
+  return postJson<SuggestionActionResult>('/suggestions', { id, action });
+}
+
+/**
+ * BUILD_PLAN section 7 puts push-to-linear on this endpoint, but the route Dev A
+ * shipped accepts only 'approve' | 'dismiss' — the Linear side is Workstream C's
+ * `createIssue()`, which has no HTTP route yet. Calling this today returns a 400
+ * that the page surfaces verbatim rather than pretending the push succeeded.
+ */
+export async function pushSuggestionToLinear(id: number): Promise<SuggestionActionResult> {
+  if (USE_MOCK) {
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    const suggestion = mockSuggestions().find((s) => s.id === id);
+    if (!suggestion) throw new Error(`No suggestion with id ${id}`);
+    return { suggestion: { ...suggestion, linear_issue_id: `GEO-${11 + id}` } };
+  }
+  return postJson<SuggestionActionResult>('/suggestions', { id, action: 'push-to-linear' });
 }

@@ -5,6 +5,7 @@ import { PageHeader } from '@/app/_components/filters';
 import { Toast, type ToastMessage } from '@/app/_components/toast';
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   ErrorState,
@@ -240,17 +241,12 @@ function RunRow({ run }: { run: Run }) {
 
 function RunNowButton({ pending, onClick }: { pending: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={pending}
-      className="flex items-center gap-2 rounded-md bg-ink px-3.5 py-2 text-[13px] font-medium text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
-    >
+    <Button variant="primary" onClick={onClick} disabled={pending}>
       <svg viewBox="0 0 10 10" aria-hidden className="h-2.5 w-2.5 fill-current">
         <path d="M1 0.5 9 5 1 9.5Z" />
       </svg>
       {pending ? 'Queueing…' : 'Run now'}
-    </button>
+    </Button>
   );
 }
 

@@ -90,6 +90,39 @@ export function Meter({ value, max = 100, self = false }: { value: number; max?:
   );
 }
 
+type ButtonVariant = 'primary' | 'outline' | 'ghost';
+
+/**
+ * The three button weights the dashboard uses. Primary is the dark fill and
+ * there is at most one per screen — "Run now", "Approve & track".
+ */
+export function Button({
+  variant = 'outline',
+  className,
+  children,
+  ...props
+}: { variant?: ButtonVariant } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const variants: Record<ButtonVariant, string> = {
+    primary: 'bg-ink text-canvas hover:bg-ink/90 border border-ink',
+    outline: 'border border-hairline-strong bg-card text-ink hover:bg-canvas',
+    ghost: 'border border-transparent text-ink-muted hover:text-ink',
+  };
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cx(
+        'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        variants[variant],
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cx('animate-pulse rounded bg-hairline', className)} />;
 }
