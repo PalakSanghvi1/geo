@@ -15,6 +15,7 @@
     "export-evalset": "tsx scripts/export-evalset.ts",
     "eval": "tsx scripts/eval.ts",
     "verify-models": "tsx scripts/verify-models.ts",
+    "smoke": "tsx scripts/smoke-providers.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -64,8 +64,12 @@ export const RUNNER = {
   maxRetries: 2,
   /** Backoff schedule between retries. */
   backoffMs: [2_000, 8_000],
-  /** Max tokens requested from an answer model. */
-  maxAnswerTokens: 1500,
+  /**
+   * Max tokens per answer. Generous enough that a cited, multi-brand answer is
+   * never truncated — a cut-off answer silently loses the brands named last,
+   * which would corrupt position and visibility rather than just shortening text.
+   */
+  maxAnswerTokens: 4000,
 } as const;
 
 /** Visibility delta (percentage points vs the 7-day mean) that triggers an alert. */
@@ -125,10 +129,13 @@ export const SEED_QUERIES: SeedQuery[] = [
   { text: 'What’s the easiest way to add tracing to an AI agent?', tag: 'howto' },
   { text: 'Alternatives to LangSmith for agent monitoring', tag: 'comparison' },
   { text: 'Which AI agent monitoring tool has the best Slack alerting?', tag: 'feature' },
-  { text: 'Tools for debugging multi-step agent workflows', tag: 'category' },
+  // Branded queries. Real GEO customers track these alongside category questions,
+  // and without them a young brand's visibility line is flat zero — true, but it
+  // measures nothing and shows no movement.
+  { text: 'What is Lemma and how does it monitor AI agents?', tag: 'branded' },
   { text: 'How do I know if my customer support AI agent is making mistakes?', tag: 'howto' },
   { text: 'Best observability stack for a YC startup building AI agents', tag: 'category' },
-  { text: 'What is AI agent evaluation and which platforms do it?', tag: 'category' },
+  { text: 'Lemma vs LangSmith for production agent monitoring', tag: 'branded' },
   { text: 'Datadog vs specialized AI agent monitoring tools', tag: 'comparison' },
 ];
 

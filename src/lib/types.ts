@@ -47,6 +47,12 @@ export interface Run {
 export interface Citation {
   url: string;
   title?: string;
+  /**
+   * true  = the model explicitly cited this URL in its answer text
+   * false = the model retrieved it during search but did not cite it
+   * This is the "cited vs used" distinction the sources view reports on.
+   */
+  cited?: boolean;
 }
 
 export interface Answer {
