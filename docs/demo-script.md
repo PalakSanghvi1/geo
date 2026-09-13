@@ -28,7 +28,8 @@ idea at a time. Anything in _italics_ is a stage direction, not narration.
 
 - **"Three months of history."** Say "three months plotted, two days collected."
 - **"We track Claude, GPT and Gemini."** Gemini has no real data. Say "Claude and GPT, with Gemini wired up."
-- **"Partial coverage" / "degraded"** — unless you have restored a failing run (see the note at 1:00).
+- **"Partial coverage" / "degraded" / "a provider went down"** — there is no failing run in
+  the data. Every run reads `complete` with zero failures and Gemini's card says "no data".
 - Any eval number you have not re-run that morning.
 
 ---
@@ -71,33 +72,29 @@ in a second tab; don't hunt for it on camera._
 > so `docs.smith.langchain.com` still counts as LangSmith, even though the name isn't in
 > the domain."
 
-## 1:00 — Runs
+## 1:00 — Runs, then the eval
 
-> "This is every prompt against every model, with retries and per-provider health. These
-> numbers are read, not estimated — we had it guessing a per-provider split at one point
-> and took that out, because this is the one page whose whole job is saying what actually
-> happened."
+_Point at the three provider cards._
 
-**If you restored a failing provider first** (see below), add — and this becomes the
-strongest fifteen seconds in the recording:
+> "Every prompt against every model, with per-provider health. And look at Gemini — it
+> says 'no data', not 'healthy'. It's wired up but it never collected anything, so we'd
+> rather show you a blank than a green tick we can't back up. Those counts are read from
+> the answers themselves, not estimated — we had it guessing a per-provider split early
+> on and pulled that out, because this is the one page whose whole job is saying what
+> actually happened."
 
-> "Gemini's out of quota right now. The run still completed — partial, not failed. That's
-> deliberate: a provider dying shrinks the day's coverage, it doesn't throw the day away.
-> The metrics use what landed."
+> "And the extraction step — the thing that decides which brands an answer mentioned —
+> is the instrument every number here depends on. So we grade it. Twenty real answers,
+> hand-labelled, scored against it: 95% precision, 91% recall. It also caught a bug we'd
+> never have seen by eye — it was inventing a brand that wasn't in the text."
 
-> **As the data stands, there is no failing run to point at.** Every run is `complete`
-> with zero failures, and Gemini's card reads "no data". To get this beat back honestly,
-> break one provider on purpose and let it fail for real:
-> ```bash
-> ssh root@5.78.222.163
-> cd /var/www/html/geo && cp .env .env.bak
-> sed -i 's/^GEMINI_API_KEY=.*/GEMINI_API_KEY=invalid/' .env
-> npm run run-once -- --trigger manual      # ~4 min, real cost
-> cp .env.bak .env && pm2 restart geo-worker
-> ```
-> That is a genuine failure genuinely handled — which is what BUILD_PLAN §6 A3 asked for
-> in the first place. It also creates the first real live run, which lights up the
-> backfilled/live marker on the chart.
+_That eval line is the reliability beat. It is stronger than any screen, because almost
+nobody measures their own measurement instrument._
+
+> **Note:** every run currently reads `complete` with zero failures, so there is no
+> degraded/partial state to point at. Do **not** narrate "partial coverage" — describe
+> the behaviour only if asked in Q&A ("a provider dying shrinks the day's coverage
+> rather than failing the day"), and say plainly that it is not on screen today.
 
 ## 1:20 — Slack
 
