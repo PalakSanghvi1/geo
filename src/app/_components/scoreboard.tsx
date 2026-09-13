@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { ScoreboardRow } from '@/lib/types';
 import { assignBrandColors } from './brand-colors';
-import { Badge, Card, Delta, EmptyState, Meter, Skeleton, cx } from './ui';
+import { Badge, Button, Card, Delta, EmptyState, METER_W, Meter, Skeleton, cx } from './ui';
 
 /** Rows shown before the reader asks for the long tail. */
 const COLLAPSED = 6;
@@ -101,6 +101,9 @@ export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?:
   return (
     <Card>
       <table className="w-full text-sm">
+        <caption className="sr-only">
+          Competitor scoreboard, ranked by share of answers mentioning each brand
+        </caption>
         <HeaderRow />
         <tbody>
           {visible.map((row, i) => (
@@ -111,7 +114,7 @@ export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?:
                 row.isSelf && 'bg-accent-wash'
               )}
             >
-              <td className={cx(CELL, 'numeric text-ink-faint')}>{i + 1}</td>
+              <td className={cx(CELL, 'numeric text-ink-muted')}>{i + 1}</td>
               <td className={CELL}>
                 <div className="flex items-center gap-2.5">
                   <span
@@ -126,7 +129,7 @@ export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?:
               <td className={CELL}>
                 <div className="flex items-center gap-3">
                   <span className="numeric w-9 text-right">{row.visibility.toFixed(0)}%</span>
-                  <div className="w-[148px]">
+                  <div className={METER_W}>
                     <Meter value={row.visibility} self={row.isSelf} />
                   </div>
                 </div>
@@ -139,7 +142,7 @@ export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?:
               </td>
               <td className={NUM}>
                 {row.sentiment > 0 ? '+' : ''}
-                {row.sentiment}
+                {Math.round(row.sentiment)}
               </td>
             </tr>
           ))}
@@ -149,9 +152,11 @@ export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?:
         <button
           type="button"
           onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
           className={cx(
             CELL,
-            'block w-full border-t border-hairline text-left text-[13px] text-accent transition-colors hover:text-ink'
+            'block w-full border-t border-hairline text-left text-[13px] text-accent-ink transition-colors hover:text-ink',
+            'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent'
           )}
         >
           {expanded ? 'Show top 6 →' : `View all ${rows.length} competitors →`}

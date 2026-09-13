@@ -168,3 +168,39 @@ Append, don't rewrite. One line each, newest at the bottom.
 - **`SourceRow.urls` drops `Citation.title`**, so the expanded list can only label a URL
   with its own path. Carrying the title through would read much better.
 - Still open: `Run.by_provider`, `PromptRow` run-status, `avgPositionPrev7`.
+
+## Phase B3 addendum — mock removal and audit fixes (Dev B)
+
+- **`src/lib/mock.ts` is deleted and the `NEXT_PUBLIC_USE_MOCK` flag is gone.** It
+  existed only to build the dashboard before Workstream A's API routes landed. They are
+  merged and carry real data, so every screen now fetches `/geo/api/...` and nothing
+  else. The earlier B1–B3 entries above describing mock mode are history, not current
+  behaviour. An empty screen from here on is a real signal about the data, not a
+  rendering bug — that is the point of removing the fallback.
+- **Audit fixes** (from a read-only pass over the whole dashboard). The ones that
+  mattered:
+  - **Sentiment was rendering unrounded.** `ScoreboardRow.sentiment` is a mean, so real
+    data would have printed `61.666666666666664` in the scoreboard and the stat card.
+  - **The chart and the scoreboard could give one brand two different colours.** Colours
+    were assigned over the chart's *filtered* brand list, so a brand missing from the
+    series shifted every later competitor one slot. `chartBrands()` now assigns over the
+    whole scoreboard and filters afterwards — the drift `brand-colors.ts` exists to stop.
+  - **A failed refresh blanked a populated page.** With `useRuns(5000)` polling, one
+    blip mid-demo replaced a full screen with an error card. Every page now keeps its
+    content and shows `ErrorBanner` above it, falling back to the full-page error only
+    when there is nothing to show.
+  - **Provider health read the newest run**, which during a live run has no counts, so
+    all three cards said "no data" above a table full of results. It now reads the newest
+    run that has counts.
+  - **An `ok` answer with null text was reported as a failed call.** Status and text are
+    independent in the contract; they are now separate branches.
+  - Brand highlighting is built from the answer's own mentions rather than only
+    `SEED_BRANDS`, so a competitor approved through the Suggestions page is highlighted
+    in the prose and not just listed in the rail.
+  - The suggestions rail no longer says "Today": the stamps are UTC and were being
+    compared against the browser's local date. It shows the date and states the zone.
+  - Consistency: one `Meter` width, one `Button`, one `ErrorBanner`, one card-title
+    class; chart gridlines matched to `--color-hairline`; `text-accent-ink` added for
+    accent-coloured text, which failed AA at the brand accent; focus-visible rings;
+    `text-ink-faint` reserved for placeholders rather than real values.
+  - Dead code removed: `CardHeader` and `ComingSoon` had no call sites left.

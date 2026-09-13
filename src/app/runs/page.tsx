@@ -8,7 +8,9 @@ import {
   Button,
   Card,
   EmptyState,
+  ErrorBanner,
   ErrorState,
+  METER_W,
   Meter,
   Overline,
   Skeleton,
@@ -114,7 +116,7 @@ function HealthCard({ health }: { health: ProviderHealth }) {
         <Overline>{modelOverline(health.label)}</Overline>
         <div className="mt-1.5 flex items-baseline gap-1.5">
           <span className="numeric text-[22px] leading-none font-semibold">{health.ok}</span>
-          <span className="numeric text-[22px] leading-none text-ink-faint">/{health.total}</span>
+          <span className="numeric text-[22px] leading-none text-ink-muted">/{health.total}</span>
           <span className="text-[13px] text-ink-muted">
             {degraded ? `${health.failed} retrying` : 'answers'}
           </span>
@@ -132,7 +134,7 @@ function HealthCard({ health }: { health: ProviderHealth }) {
         </span>
       ) : (
         <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-up">
-          <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden />
+          <span className="h-1.5 w-1.5 rounded-full bg-up" aria-hidden />
           healthy
         </span>
       )}
@@ -157,7 +159,7 @@ function HealthSkeleton() {
 /* ------------------------------------------------------------------ */
 
 const STATUS: Record<RunStatus, { dot: string; text: string; glyph?: string }> = {
-  running: { dot: 'bg-accent', text: 'text-accent' },
+  running: { dot: 'bg-accent', text: 'text-accent-ink' },
   complete: { dot: 'bg-up', text: 'text-up' },
   partial: { dot: '', text: 'text-warn', glyph: '⚠' },
   failed: { dot: 'bg-down', text: 'text-down' },
@@ -166,7 +168,7 @@ const STATUS: Record<RunStatus, { dot: string; text: string; glyph?: string }> =
 function StatusCell({ status }: { status: RunStatus }) {
   const tone = STATUS[status];
   return (
-    <span className={cx('flex items-center gap-2', tone.text)}>
+    <span className={cx('flex items-center gap-2 capitalize', tone.text)}>
       {tone.glyph ? (
         <span aria-hidden>{tone.glyph}</span>
       ) : (
@@ -222,7 +224,7 @@ function RunRow({ run }: { run: Run }) {
       <td className={CELL}><StatusCell status={run.status} /></td>
       <td className={CELL}>
         <div className="flex items-center gap-3">
-          <div className="w-[170px]">
+          <div className={METER_W}>
             <Meter value={run.ok_calls} max={run.total_calls} self={run.status === 'running'} />
           </div>
           <span className="numeric text-ink-muted">
@@ -241,7 +243,7 @@ function RunRow({ run }: { run: Run }) {
 
 function RunNowButton({ pending, onClick }: { pending: boolean; onClick: () => void }) {
   return (
-    <Button variant="primary" onClick={onClick} disabled={pending}>
+    <Button variant="primary" onClick={onClick} disabled={pending} aria-busy={pending}>
       <svg viewBox="0 0 10 10" aria-hidden className="h-2.5 w-2.5 fill-current">
         <path d="M1 0.5 9 5 1 9.5Z" />
       </svg>
@@ -257,7 +259,11 @@ export default function RunsPage() {
 
   // Newest first, regardless of the order the API happens to return.
   const runs = useMemo(() => [...(data ?? [])].sort((a, b) => b.id - a.id), [data]);
-  const health = useMemo(() => providerHealth(runs[0]), [runs]);
+  // The in-flight run has no counts yet, so report the newest run that does.
+  const health = useMemo(
+    () => providerHealth(runs.find((run) => run.total_calls > 0)),
+    [runs]
+  );
 
   const dismissToast = useCallback(() => setToast(null), []);
 
@@ -284,12 +290,13 @@ export default function RunsPage() {
       </PageHeader>
 
       <div className="flex flex-col gap-4 px-8 pb-12">
-        {error ? (
+        {error && data === null ? (
           <Card>
             <ErrorState message={error} onRetry={refresh} />
           </Card>
         ) : (
           <>
+            {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
             <div className="grid gap-4 md:grid-cols-3">
               {loading
                 ? ANSWER_MODELS.map((model) => <HealthSkeleton key={model.provider} />)

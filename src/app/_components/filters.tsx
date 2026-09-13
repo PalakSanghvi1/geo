@@ -37,6 +37,7 @@ export function Segmented<T extends string>({
             onClick={() => onChange(option.value)}
             className={cx(
               'rounded px-2.5 py-1 text-[13px] whitespace-nowrap transition-colors',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
               active
                 ? 'bg-canvas font-medium text-ink shadow-[inset_0_0_0_1px_var(--color-hairline)]'
                 : 'text-ink-muted hover:text-ink'
@@ -68,7 +69,7 @@ export function RangeSelect({
       <select
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="appearance-none rounded-md border border-hairline bg-card py-1.5 pr-8 pl-3 text-[13px] text-ink"
+        className="appearance-none rounded-md border border-hairline bg-card py-1.5 pr-8 pl-3 text-[13px] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

@@ -1,14 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  mockAnswerDetail,
-  mockOverview,
-  mockPrompts,
-  mockRuns,
-  mockSources,
-  mockSuggestions,
-} from '@/lib/mock';
 import type {
   AnswerDetailResponse,
   OverviewResponse,
@@ -24,17 +16,6 @@ import type {
  */
 export const API_BASE = '/geo/api';
 
-/**
- * Workstream A's routes land at Checkpoint 2. Until then set
- * NEXT_PUBLIC_USE_MOCK=1 in .env.local to run the dashboard on src/lib/mock.ts.
- *
- * Opt-in rather than opt-out on purpose: the VPS .env does not set it, so a
- * production build always talks to the real API, and when mock mode IS on the
- * header carries a MOCK DATA badge. Invented numbers must never be able to
- * pass for measurements during judging.
- */
-export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === '1';
-
 export type ProviderParam = 'all' | 'anthropic' | 'openai' | 'gemini';
 
 export interface AsyncState<T> {
@@ -45,6 +26,22 @@ export interface AsyncState<T> {
   refresh: () => void;
 }
 
+async function readError(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: unknown };
+    if (typeof body.error === 'string' && body.error.length > 0) return body.error;
+  } catch {
+    // Not JSON; fall through to the status line.
+  }
+  return `${res.status} ${res.statusText}`;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(await readError(res));
+  return (await res.json()) as T;
+}
+
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
@@ -52,13 +49,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${API_BASE}${path}`);
-  return (await res.json()) as T;
-}
-
-async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${API_BASE}${path}`);
+  if (!res.ok) throw new Error(await readError(res));
   return (await res.json()) as T;
 }
 
@@ -73,8 +64,12 @@ function useResource<T>(key: string, load: () => Promise<T>, pollMs = 0): AsyncS
   const [tick, setTick] = useState(0);
 
   // Kept in a ref so an inline arrow for `load` doesn't retrigger the effect.
+  // Assigned in an effect rather than during render, which concurrent rendering
+  // is free to throw away.
   const loadRef = useRef(load);
-  loadRef.current = load;
+  useEffect(() => {
+    loadRef.current = load;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -112,32 +107,33 @@ function useResource<T>(key: string, load: () => Promise<T>, pollMs = 0): AsyncS
 
 export function useOverview(days: number, provider: ProviderParam): AsyncState<OverviewResponse> {
   return useResource(`overview:${days}:${provider}`, () =>
-    USE_MOCK
-      ? Promise.resolve(mockOverview(days, provider))
-      : getJson<OverviewResponse>(`/overview?days=${days}&provider=${provider}`)
+    getJson<OverviewResponse>(`/overview?days=${days}&provider=${provider}`)
   );
 }
 
 export function useRuns(pollMs = 0): AsyncState<Run[]> {
-  return useResource(
-    'runs',
-    () => (USE_MOCK ? Promise.resolve(mockRuns()) : getJson<Run[]>('/runs')),
-    pollMs
-  );
+  return useResource('runs', () => getJson<Run[]>('/runs'), pollMs);
 }
 
 export function usePrompts(): AsyncState<PromptRow[]> {
-  return useResource('prompts', () =>
-    USE_MOCK ? Promise.resolve(mockPrompts()) : getJson<PromptRow[]>('/prompts')
-  );
+  return useResource('prompts', () => getJson<PromptRow[]>('/prompts'));
 }
 
 export function useAnswerDetail(answerId: number): AsyncState<AnswerDetailResponse> {
   return useResource(`answer:${answerId}`, () =>
-    USE_MOCK
-      ? Promise.resolve(mockAnswerDetail(answerId))
-      : getJson<AnswerDetailResponse>(`/answers/${answerId}`)
+    getJson<AnswerDetailResponse>(`/answers/${answerId}`)
   );
+}
+
+export function useSources(days: number, provider: ProviderParam): AsyncState<SourceRow[]> {
+  return useResource(`sources:${days}:${provider}`, () =>
+    getJson<SourceRow[]>(`/sources?days=${days}&provider=${provider}`)
+  );
+}
+
+/** Pending suggestions only — the API does not return resolved ones. */
+export function useSuggestions(): AsyncState<Suggestion[]> {
+  return useResource('suggestions', () => getJson<Suggestion[]>('/suggestions'));
 }
 
 /**
@@ -145,26 +141,7 @@ export function useAnswerDetail(answerId: number): AsyncState<AnswerDetailRespon
  * through `run_requests`, so the worker has one code path to poll.
  */
 export async function triggerRun(note: string): Promise<void> {
-  if (USE_MOCK) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    return;
-  }
   await postJson('/trigger', { note });
-}
-
-export function useSources(days: number, provider: ProviderParam): AsyncState<SourceRow[]> {
-  return useResource(`sources:${days}:${provider}`, () =>
-    USE_MOCK
-      ? Promise.resolve(mockSources(days, provider))
-      : getJson<SourceRow[]>(`/sources?days=${days}&provider=${provider}`)
-  );
-}
-
-/** Pending suggestions only — the API does not return resolved ones. */
-export function useSuggestions(): AsyncState<Suggestion[]> {
-  return useResource('suggestions', () =>
-    USE_MOCK ? Promise.resolve(mockSuggestions()) : getJson<Suggestion[]>('/suggestions')
-  );
 }
 
 export interface SuggestionActionResult {
@@ -177,33 +154,25 @@ export async function resolveSuggestion(
   id: number,
   action: 'approve' | 'dismiss'
 ): Promise<SuggestionActionResult> {
-  if (USE_MOCK) {
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    const suggestion = mockSuggestions().find((s) => s.id === id);
-    if (!suggestion) throw new Error(`No suggestion with id ${id}`);
-    return {
-      suggestion: { ...suggestion, status: action === 'approve' ? 'approved' : 'dismissed' },
-      created:
-        action === 'approve'
-          ? { table: suggestion.kind === 'competitor' ? 'brands' : 'queries', id: 99, duplicate: false }
-          : { table: null, id: null, duplicate: false },
-    };
-  }
   return postJson<SuggestionActionResult>('/suggestions', { id, action });
 }
 
 /**
- * BUILD_PLAN section 7 puts push-to-linear on this endpoint, but the route Dev A
- * shipped accepts only 'approve' | 'dismiss' — the Linear side is Workstream C's
- * `createIssue()`, which has no HTTP route yet. Calling this today returns a 400
- * that the page surfaces verbatim rather than pretending the push succeeded.
+ * BUILD_PLAN section 7 puts push-to-linear on this endpoint, but the route
+ * currently accepts only 'approve' | 'dismiss' — the Linear side is Workstream
+ * C's `createIssue()`, which has no HTTP route yet. Until it does, this fails,
+ * and the page says why rather than implying the issue was created.
  */
 export async function pushSuggestionToLinear(id: number): Promise<SuggestionActionResult> {
-  if (USE_MOCK) {
-    await new Promise((resolve) => setTimeout(resolve, 450));
-    const suggestion = mockSuggestions().find((s) => s.id === id);
-    if (!suggestion) throw new Error(`No suggestion with id ${id}`);
-    return { suggestion: { ...suggestion, linear_issue_id: `GEO-${11 + id}` } };
+  try {
+    return await postJson<SuggestionActionResult>('/suggestions', { id, action: 'push-to-linear' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/action/i.test(message)) {
+      throw new Error(
+        'Linear push is not wired up yet — /api/suggestions accepts approve and dismiss only.'
+      );
+    }
+    throw err;
   }
-  return postJson<SuggestionActionResult>('/suggestions', { id, action: 'push-to-linear' });
 }

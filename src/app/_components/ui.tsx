@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 
+/** One bar width across the scoreboard, prompts, runs and sources tables. */
+export const METER_W = 'w-[160px]';
+
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
 }
@@ -11,12 +14,8 @@ export function Card({ className, children }: { className?: string; children: Re
   );
 }
 
-export function CardHeader({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-hairline px-5 py-4">
-      {children}
-    </div>
-  );
+export function CardTitle({ children }: { children: ReactNode }) {
+  return <h2 className="text-[15px] font-medium">{children}</h2>;
 }
 
 export function Overline({ children }: { children: ReactNode }) {
@@ -113,6 +112,7 @@ export function Button({
       {...props}
       className={cx(
         'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         'disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant],
         className
@@ -133,15 +133,25 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       <Overline>Could not load</Overline>
       <p className="max-w-xl text-sm text-ink-muted">{message}</p>
       {onRetry ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-1 rounded border border-hairline-strong px-2.5 py-1 text-sm text-ink transition-colors hover:bg-canvas"
-        >
+        <Button className="mt-1" onClick={onRetry}>
           Retry
-        </button>
+        </Button>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A failed refresh when data is already on screen. Replacing a populated page
+ * with an error card loses everything the reader was looking at — and on the
+ * Runs page, which polls every five seconds, one blip would do it mid-demo.
+ */
+export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-3 border-down/30 px-5 py-3">
+      <p className="text-sm text-ink-muted">{message}</p>
+      {onRetry ? <Button onClick={onRetry}>Retry</Button> : null}
+    </Card>
   );
 }
 
@@ -151,20 +161,5 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
       <p className="text-sm font-medium text-ink">{title}</p>
       {hint ? <p className="text-sm text-ink-muted">{hint}</p> : null}
     </div>
-  );
-}
-
-/** Placeholder for pages owned by later phases, so the nav is never a dead end. */
-export function ComingSoon({ page, phase }: { page: string; phase: string }) {
-  return (
-    <Card>
-      <div className="flex flex-col items-start gap-1.5 px-5 py-10">
-        <Overline>{phase}</Overline>
-        <p className="text-sm text-ink-muted">
-          The {page} view is built in {phase}. The route and navigation are in place so the shell
-          can be reviewed end to end.
-        </p>
-      </div>
-    </Card>
   );
 }

@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PageHeader, Segmented } from '@/app/_components/filters';
-import { Badge, Card, EmptyState, ErrorState, Meter, Overline, Skeleton, cx } from '@/app/_components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBanner, ErrorState, METER_W, Meter, Overline, Skeleton, cx } from '@/app/_components/ui';
 import { usePrompts } from '@/app/_lib/fetcher';
 import type { PromptRow, ProviderId } from '@/lib/types';
 
 const CELL = 'px-5 py-3';
+
+const FOCUS_RING = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 /** Sentinel for the unfiltered segment — a real tag is always a plain word. */
 const ALL_TAGS = '*';
@@ -90,7 +92,7 @@ function HeaderRow() {
   );
 }
 
-function AnswerLinks({ ids }: { ids: PromptRow['latestAnswerIds'] }) {
+function AnswerLinks({ ids, prompt }: { ids: PromptRow['latestAnswerIds']; prompt: string }) {
   const links = PROVIDER_ORDER.flatMap((provider) => {
     const id = ids[provider];
     return id === undefined ? [] : [{ provider, id }];
@@ -101,10 +103,15 @@ function AnswerLinks({ ids }: { ids: PromptRow['latestAnswerIds'] }) {
   return (
     <div className="flex items-center gap-1.5">
       {links.map(({ provider, id }) => (
+        // Without the label the 45 links read as "Claude, GPT, Gemini" over and over.
         <Link
           key={provider}
           href={`/answers/${id}`}
-          className="rounded border border-accent/20 bg-accent-wash px-1.5 py-0.5 text-[12px] text-accent transition-colors hover:border-accent/40"
+          aria-label={`${PROVIDER_LABELS[provider]} answer for "${prompt}"`}
+          className={cx(
+            'rounded border border-accent/20 bg-accent-wash px-1.5 py-0.5 text-[12px] text-accent-ink transition-colors hover:border-accent/40',
+            FOCUS_RING
+          )}
         >
           {PROVIDER_LABELS[provider]}
         </Link>
@@ -119,7 +126,7 @@ function PromptCells({ row }: { row: PromptRow }) {
       <td className={CELL}>
         <div className="flex items-center gap-3">
           <span className="numeric w-9 text-right">{row.selfVisibility.toFixed(0)}%</span>
-          <div className="w-[120px]">
+          <div className={METER_W}>
             <Meter value={row.selfVisibility} self />
           </div>
         </div>
@@ -128,7 +135,7 @@ function PromptCells({ row }: { row: PromptRow }) {
         {row.topBrands.length === 0 ? '—' : row.topBrands.join(' · ')}
       </td>
       <td className={CELL}>
-        <AnswerLinks ids={row.latestAnswerIds} />
+        <AnswerLinks ids={row.latestAnswerIds} prompt={row.text} />
       </td>
     </>
   );
@@ -171,7 +178,7 @@ function PromptsSkeleton() {
           <td className={CELL}>
             <div className="flex items-center gap-3">
               <Skeleton className="h-3 w-9" />
-              <Skeleton className="h-[3px] w-[120px]" />
+              <Skeleton className={cx('h-[3px]', METER_W)} />
             </div>
           </td>
           <td className={CELL}>
@@ -213,33 +220,35 @@ export default function PromptsPage() {
     <>
       <PageHeader
         title="Prompts"
-        subtitle="The 45 tracked prompts — 15 base queries plus two AI-generated variations each."
+        subtitle="Every tracked base query, with its AI-generated variations grouped beneath it."
       >
-        {tags.length > 0 ? (
+        {/* Mounted while loading too, so the control doesn't pop in a beat after paint. */}
+        <div inert={prompts.loading} className={prompts.loading ? 'opacity-50' : undefined}>
           <Segmented label="Prompt tag" value={tag} options={tagOptions} onChange={setTag} />
-        ) : null}
+        </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-3 px-8 pb-12">
-        {prompts.error ? (
+      <div className="flex flex-col gap-4 px-8 pb-12">
+        {prompts.error && prompts.data === null ? (
           <Card>
             <ErrorState message={prompts.error} onRetry={prompts.refresh} />
           </Card>
         ) : (
           <>
+            {/* A failed refresh sits above the last good table rather than replacing it. */}
+            {prompts.error ? (
+              <ErrorBanner message={prompts.error} onRetry={prompts.refresh} />
+            ) : null}
+
             <Overline>
-              {visible.length} base {visible.length === 1 ? 'query' : 'queries'} ·{' '}
-              {countPrompts(visible)} prompts
+              {prompts.loading
+                ? 'Loading prompts'
+                : `${visible.length} base ${visible.length === 1 ? 'query' : 'queries'} · ${countPrompts(
+                    visible
+                  )} prompts`}
             </Overline>
+
             <Card>
-              <table className="w-full text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
-                <HeaderRow />
-                {prompts.loading ? (
-                  <PromptsSkeleton />
-                ) : (
-                  visible.map((group) => <GroupRows key={group.base.queryId} group={group} />)
-                )}
-              </table>
               {!prompts.loading && visible.length === 0 ? (
                 rows.length === 0 ? (
                   <EmptyState
@@ -252,7 +261,16 @@ export default function PromptsPage() {
                     hint="Clear the filter to see every tracked prompt."
                   />
                 )
-              ) : null}
+              ) : (
+                <table className="w-full text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
+                  <HeaderRow />
+                  {prompts.loading ? (
+                    <PromptsSkeleton />
+                  ) : (
+                    visible.map((group) => <GroupRows key={group.base.queryId} group={group} />)
+                  )}
+                </table>
+              )}
             </Card>
           </>
         )}

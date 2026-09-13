@@ -19,7 +19,7 @@ export function StatCard({
       <Overline>{label}</Overline>
       <div className="numeric mt-2 text-[30px] leading-none font-semibold tracking-[-0.02em]">
         {value}
-        {suffix ? <span className="text-ink-faint">{suffix}</span> : null}
+        {suffix ? <span className="text-ink-muted">{suffix}</span> : null}
       </div>
       <div className="mt-2.5 text-[13px] text-ink-muted">{footer}</div>
     </Card>
@@ -91,7 +91,7 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
       />
       <StatCard
         label="Sentiment"
-        value={`${self.sentiment > 0 ? '+' : ''}${self.sentiment}`}
+        value={`${self.sentiment > 0 ? '+' : ''}${Math.round(self.sentiment)}`}
         footer={sentimentLabel(self.sentiment)}
       />
       <StatCard

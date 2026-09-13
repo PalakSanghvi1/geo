@@ -13,7 +13,8 @@ export const SERIES_MUTED = '#b8b7b0';
 export const INK = '#0b0b0b';
 export const INK_MUTED = '#6b6a65';
 export const INK_FAINT = '#9d9c95';
-export const HAIRLINE = 'rgba(11,11,11,0.10)';
+/** Must track --color-hairline in globals.css; Recharts needs a literal. */
+export const HAIRLINE = 'rgba(11,11,11,0.08)';
 
 /** Brands beyond this many get the muted dot and stay off the chart. */
 export const MAX_SERIES = 5;
@@ -37,19 +38,31 @@ export function assignBrandColors(scoreboard: BrandLike[]): Map<string, string> 
   const colors = new Map<string, string>();
   if (self) colors.set(self.brand, SERIES_COLORS[0]);
 
-  const slots = self ? MAX_SERIES - 1 : MAX_SERIES;
+  // Wrapping the palette would give the 1st and 5th competitor the same colour.
   others.forEach((row, i) => {
-    colors.set(row.brand, i < slots ? SERIES_COLORS[(i % (SERIES_COLORS.length - 1)) + 1] : SERIES_MUTED);
+    colors.set(row.brand, SERIES_COLORS[i + 1] ?? SERIES_MUTED);
   });
 
   return colors;
 }
 
-/** The brands that earn a line on the chart: the self brand plus the top competitors. */
-export function chartBrands(scoreboard: BrandLike[]): Array<BrandLike & { color: string }> {
+/**
+ * The brands that earn a line on the chart: the self brand plus the top competitors.
+ *
+ * Colours are assigned over the WHOLE scoreboard and only then filtered by
+ * `drawable`. Assigning over the filtered list instead would shift every
+ * subsequent competitor one slot along, so the dot beside a brand in the table
+ * would not match its line in the chart — the exact drift this module exists
+ * to prevent.
+ */
+export function chartBrands(
+  scoreboard: BrandLike[],
+  drawable: (brand: string) => boolean = () => true
+): Array<BrandLike & { color: string }> {
   const colors = assignBrandColors(scoreboard);
-  const self = scoreboard.find((row) => row.isSelf);
-  const others = scoreboard.filter((row) => !row.isSelf).slice(0, self ? MAX_SERIES - 1 : MAX_SERIES);
+  const present = scoreboard.filter((row) => drawable(row.brand));
+  const self = present.find((row) => row.isSelf);
+  const others = present.filter((row) => !row.isSelf).slice(0, self ? MAX_SERIES - 1 : MAX_SERIES);
   const chosen = self ? [self, ...others] : others;
   return chosen.map((row) => ({ ...row, color: colors.get(row.brand) ?? SERIES_MUTED }));
 }

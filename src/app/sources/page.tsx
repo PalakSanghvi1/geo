@@ -1,17 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader, RangeSelect, Segmented } from '@/app/_components/filters';
-import {
-  Badge,
-  Card,
-  EmptyState,
-  ErrorState,
-  Meter,
-  Overline,
-  Skeleton,
-  cx,
-} from '@/app/_components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBanner, ErrorState, METER_W, Meter, Overline, Skeleton, cx } from '@/app/_components/ui';
 import { useSources, type ProviderParam } from '@/app/_lib/fetcher';
 import type { SourceRow } from '@/lib/types';
 
@@ -31,6 +22,8 @@ const RANGES = [
 const COLLAPSED = 10;
 
 const CELL = 'px-5 py-3';
+
+const FOCUS_RING = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 function bareHost(host: string): string {
   return host.replace(/^www\./, '').toLowerCase();
@@ -52,10 +45,12 @@ function urlLabel(url: string, domain: string): string {
   }
 }
 
+/** One precision down the column; a real citation floors at <1% rather than rounding to 0%. */
 function sharePct(count: number, total: number): string {
   if (total <= 0) return '0%';
   const pct = (count / total) * 100;
-  return `${pct >= 1 || pct === 0 ? pct.toFixed(0) : pct.toFixed(1)}%`;
+  if (pct > 0 && pct < 0.5) return '<1%';
+  return `${pct.toFixed(0)}%`;
 }
 
 function HeaderRow() {
@@ -106,6 +101,10 @@ function Favicon({ domain }: { domain: string }) {
       height={14}
       loading="lazy"
       referrerPolicy="no-referrer"
+      // Offline, every one of these 404s — a column of broken-image glyphs.
+      onError={(event) => {
+        event.currentTarget.hidden = true;
+      }}
       className="h-3.5 w-3.5 shrink-0 rounded-[2px]"
     />
   );
@@ -113,13 +112,11 @@ function Favicon({ domain }: { domain: string }) {
 
 function DomainRows({
   row,
-  topCount,
   total,
   open,
   onToggle,
 }: {
   row: SourceRow;
-  topCount: number;
   total: number;
   open: boolean;
   onToggle: () => void;
@@ -144,7 +141,10 @@ function DomainRows({
                 type="button"
                 onClick={onToggle}
                 aria-expanded={open}
-                className="flex min-w-0 items-center gap-2.5 text-left transition-colors hover:text-accent"
+                className={cx(
+                  'flex min-w-0 items-center gap-2.5 text-left transition-colors hover:text-accent-ink',
+                  FOCUS_RING
+                )}
               >
                 <Chevron open={open} />
                 {label}
@@ -164,10 +164,11 @@ function DomainRows({
         <td className={cx(CELL, 'numeric whitespace-nowrap')}>{row.citationCount}</td>
         <td className={CELL}>
           <div className="flex items-center gap-3">
-            <div className="w-[180px]">
-              <Meter value={row.citationCount} max={topCount} />
+            {/* Same denominator as the label beside it, so bar and number agree. */}
+            <div className={METER_W}>
+              <Meter value={row.citationCount} max={total} />
             </div>
-            <span className="numeric text-[12px] whitespace-nowrap text-ink-faint">
+            <span className="numeric text-[12px] whitespace-nowrap text-ink-muted">
               {sharePct(row.citationCount, total)}
             </span>
           </div>
@@ -187,11 +188,14 @@ function DomainRows({
                     target="_blank"
                     rel="noreferrer noopener"
                     title={entry.url}
-                    className="min-w-0 flex-1 truncate text-[13px] text-ink-muted transition-colors hover:text-accent"
+                    className={cx(
+                      'min-w-0 flex-1 truncate text-[13px] text-ink-muted transition-colors hover:text-accent-ink',
+                      FOCUS_RING
+                    )}
                   >
                     {urlLabel(entry.url, row.domain)}
                   </a>
-                  <span className="numeric shrink-0 text-[13px] text-ink-faint">
+                  <span className="numeric shrink-0 text-[13px] text-ink-muted">
                     ×{entry.count}
                   </span>
                 </div>
@@ -220,7 +224,7 @@ function SourcesSkeleton() {
           </td>
           <td className={CELL}>
             <div className="flex items-center gap-3">
-              <Skeleton className="h-[3px] w-[180px]" />
+              <Skeleton className={cx('h-[3px]', METER_W)} />
               <Skeleton className="h-3 w-7" />
             </div>
           </td>
@@ -236,6 +240,12 @@ export default function SourcesPage() {
   const [expanded, setExpanded] = useState(false);
   const [openDomains, setOpenDomains] = useState<ReadonlySet<string>>(new Set());
 
+  // A domain opened under one filter should not stay open under the next.
+  useEffect(() => {
+    setExpanded(false);
+    setOpenDomains(new Set());
+  }, [provider, days]);
+
   const sources = useSources(days, provider);
   const rows = useMemo(() => sources.data ?? [], [sources.data]);
 
@@ -243,8 +253,6 @@ export default function SourcesPage() {
     () => rows.reduce((sum, row) => sum + row.citationCount, 0),
     [rows]
   );
-  // Bars are scaled to the leader, so the top domain always reads as a full bar.
-  const topCount = rows.reduce((max, row) => Math.max(max, row.citationCount), 0);
 
   const toggleDomain = (domain: string) =>
     setOpenDomains((current) => {
@@ -270,13 +278,18 @@ export default function SourcesPage() {
         <RangeSelect label="Date range" value={days} options={RANGES} onChange={setDays} />
       </PageHeader>
 
-      <div className="flex flex-col gap-3 px-8 pb-12">
-        {sources.error ? (
+      <div className="flex flex-col gap-4 px-8 pb-12">
+        {sources.error && sources.data === null ? (
           <Card>
             <ErrorState message={sources.error} onRetry={sources.refresh} />
           </Card>
         ) : (
           <>
+            {/* A failed refresh sits above the last good table rather than replacing it. */}
+            {sources.error ? (
+              <ErrorBanner message={sources.error} onRetry={sources.refresh} />
+            ) : null}
+
             <Overline>
               {sources.loading
                 ? 'Loading citations'
@@ -286,43 +299,46 @@ export default function SourcesPage() {
             </Overline>
 
             <Card>
-              <table className="w-full text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
-                <HeaderRow />
-                {sources.loading ? (
-                  <SourcesSkeleton />
-                ) : (
-                  visible.map((row) => (
-                    <DomainRows
-                      key={row.domain}
-                      row={row}
-                      topCount={topCount}
-                      total={total}
-                      open={openDomains.has(row.domain)}
-                      onToggle={() => toggleDomain(row.domain)}
-                    />
-                  ))
-                )}
-              </table>
-
               {!sources.loading && rows.length === 0 ? (
                 <EmptyState
                   title="No citations in this window yet."
                   hint="Domains appear here once a run collects answers that cite sources for this model and date range."
                 />
-              ) : null}
+              ) : (
+                <>
+                  <table className="w-full text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
+                    <HeaderRow />
+                    {sources.loading ? (
+                      <SourcesSkeleton />
+                    ) : (
+                      visible.map((row) => (
+                        <DomainRows
+                          key={row.domain}
+                          row={row}
+                          total={total}
+                          open={openDomains.has(row.domain)}
+                          onToggle={() => toggleDomain(row.domain)}
+                        />
+                      ))
+                    )}
+                  </table>
 
-              {rows.length > COLLAPSED ? (
-                <button
-                  type="button"
-                  onClick={() => setExpanded((open) => !open)}
-                  className={cx(
-                    CELL,
-                    'block w-full border-t border-hairline text-left text-[13px] text-accent transition-colors hover:text-ink'
-                  )}
-                >
-                  {expanded ? `Show top ${COLLAPSED} →` : `View all ${rows.length} domains →`}
-                </button>
-              ) : null}
+                  {rows.length > COLLAPSED ? (
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((open) => !open)}
+                      aria-expanded={expanded}
+                      className={cx(
+                        CELL,
+                        'block w-full border-t border-hairline text-left text-[13px] text-accent-ink transition-colors hover:text-ink',
+                        FOCUS_RING
+                      )}
+                    >
+                      {expanded ? `Show top ${COLLAPSED} →` : `View all ${rows.length} domains →`}
+                    </button>
+                  ) : null}
+                </>
+              )}
             </Card>
           </>
         )}

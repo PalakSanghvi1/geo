@@ -73,7 +73,7 @@ export function Sidebar() {
         <span className="font-mono text-[13px] font-semibold tracking-[0.18em]">GEO</span>
       </div>
 
-      <nav className="flex flex-col gap-0.5 px-3">
+      <nav aria-label="Dashboard sections" className="flex flex-col gap-0.5 px-3">
         {NAV.map((item) => {
           // Every other route is a prefix of nothing, so only "/" needs exact matching.
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -84,6 +84,7 @@ export function Sidebar() {
               aria-current={active ? 'page' : undefined}
               className={cx(
                 'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
                 active
                   ? 'border border-hairline bg-card font-medium text-ink'
                   : 'border border-transparent text-ink-muted hover:text-ink'

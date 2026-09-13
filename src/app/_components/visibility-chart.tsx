@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import type { ScoreboardRow, SeriesPoint } from '@/lib/types';
 import { HAIRLINE, INK, INK_FAINT, INK_MUTED, chartBrands } from './brand-colors';
-import { Card, Skeleton, cx } from './ui';
+import { Card, CardTitle, Skeleton, cx } from './ui';
 
 /**
  * Chart geometry is pinned so the end-label gutter can be positioned in HTML
@@ -30,6 +30,7 @@ const LABEL_GAP = 15;
 
 function formatDay(iso: string): string {
   const [, month, day] = iso.split('-').map(Number);
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return iso;
   const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${names[(month ?? 1) - 1]} ${day}`;
 }
@@ -70,7 +71,7 @@ function ChartTooltip({
         <div key={row.name} className="flex items-center gap-2 py-px">
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: row.color }} aria-hidden />
           <span className="flex-1 pr-3">{row.name}</span>
-          <span className="numeric font-medium">{(row.value ?? 0).toFixed(1)}%</span>
+          <span className="numeric font-medium">{Math.round(row.value ?? 0)}%</span>
         </div>
       ))}
     </div>
@@ -93,13 +94,15 @@ export function VisibilityChart({
 
   const brands = useMemo(() => {
     // A scoreboard brand with no points in the window would draw an empty line.
+    // Colours still come from the full scoreboard so they match the table.
     const present = new Set(series.map((p) => p.brand));
-    return chartBrands(scoreboard.filter((row) => present.has(row.brand)));
+    return chartBrands(scoreboard, (brand) => present.has(brand));
   }, [series, scoreboard]);
   const rows = useMemo(() => pivot(series, brands), [series, brands]);
 
   const yMax = useMemo(() => {
-    const peak = Math.max(10, ...series.map((p) => p.visibility));
+    const values = series.map((p) => p.visibility).filter((v) => Number.isFinite(v));
+    const peak = Math.max(10, ...values);
     return Math.ceil(peak / 20) * 20;
   }, [series]);
 
@@ -145,9 +148,9 @@ export function VisibilityChart({
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-1">
-        <h2 className="text-[15px] font-medium">
+        <CardTitle>
           Visibility <span className="text-ink-muted">— % of answers mentioning each brand</span>
-        </h2>
+        </CardTitle>
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
           {brands.map((b) => {
             const off = hidden.has(b.brand);
@@ -158,7 +161,8 @@ export function VisibilityChart({
                 onClick={() => toggle(b.brand)}
                 aria-pressed={!off}
                 className={cx(
-                  'flex items-center gap-1.5 text-[12px] transition-opacity',
+                  'flex items-center gap-1.5 rounded text-[12px] transition-opacity',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                   off ? 'opacity-40' : 'opacity-100'
                 )}
               >

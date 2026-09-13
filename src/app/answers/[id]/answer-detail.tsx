@@ -19,32 +19,56 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+interface Highlighter {
+  re: RegExp;
+  lookup: Map<string, boolean>;
+}
+
 /**
- * Brand names plus their aliases, longest first so "Weights & Biases Weave"
- * wins over a bare "Weave". A plain string match is enough here — the
- * authoritative mention list comes from the extractor, this is only the
- * highlighting that makes it visible in the prose.
+ * Terms come from this answer's own mentions first — that list is authoritative
+ * and includes competitors approved after seed time — then from the seed config
+ * for the aliases the extractor normalised away. Longest first, so
+ * "Weights & Biases Weave" wins over a bare "Weave".
  */
-const BRAND_TERMS = SEED_BRANDS.flatMap((brand) =>
-  [brand.name, ...(brand.aliases ?? [])].map((term) => ({ term, isSelf: brand.isSelf === true }))
-).sort((a, b) => b.term.length - a.term.length);
+function buildHighlighter(mentions: Array<{ brandName: string; isSelf: boolean }>): Highlighter {
+  const terms = [
+    ...mentions.map((m) => ({ term: m.brandName, isSelf: m.isSelf })),
+    ...SEED_BRANDS.flatMap((brand) =>
+      [brand.name, ...(brand.aliases ?? [])].map((term) => ({
+        term,
+        isSelf: brand.isSelf === true,
+      }))
+    ),
+  ]
+    .filter((t) => t.term.trim().length > 0)
+    .sort((a, b) => b.term.length - a.term.length);
 
-const BRAND_LOOKUP = new Map(BRAND_TERMS.map((t) => [t.term.toLowerCase(), t.isSelf]));
-const BRAND_RE = new RegExp(`\\b(${BRAND_TERMS.map((t) => escapeRegExp(t.term)).join('|')})\\b`, 'gi');
+  const lookup = new Map<string, boolean>();
+  for (const t of terms) {
+    if (!lookup.has(t.term.toLowerCase())) lookup.set(t.term.toLowerCase(), t.isSelf);
+  }
 
-function highlight(text: string): ReactNode[] {
+  const unique = [...new Set(terms.map((t) => t.term))];
+  return {
+    lookup,
+    re: new RegExp(`\\b(${unique.map(escapeRegExp).join('|')})\\b`, 'gi'),
+  };
+}
+
+function highlight(text: string, { re, lookup }: Highlighter): ReactNode[] {
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let key = 0;
-  BRAND_RE.lastIndex = 0;
+  re.lastIndex = 0;
 
-  let match = BRAND_RE.exec(text);
+  let match = re.exec(text);
   while (match !== null) {
     if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
-    const isSelf = BRAND_LOOKUP.get(match[0].toLowerCase()) ?? false;
+    const isSelf = lookup.get(match[0].toLowerCase()) ?? false;
     nodes.push(
       <mark
         key={`m${key++}`}
+        title={isSelf ? 'Your brand' : 'Competitor'}
         className={cx(
           'rounded px-1 py-0.5',
           isSelf ? 'bg-accent-wash font-medium text-ink' : 'bg-ink/[0.06] text-ink'
@@ -54,10 +78,21 @@ function highlight(text: string): ReactNode[] {
       </mark>
     );
     cursor = match.index + match[0].length;
-    match = BRAND_RE.exec(text);
+    match = re.exec(text);
   }
   if (cursor < text.length) nodes.push(text.slice(cursor));
   return nodes;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** 'YYYY-MM-DD HH:MM:SS' -> 'Sep 13 · 09:04'. Returns the input if unparseable. */
+function formatStamp(stamp: string): string {
+  const [date, time = ''] = stamp.split(' ');
+  const [, month, day] = date.split('-').map(Number);
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return stamp;
+  const label = `${MONTHS[month - 1]} ${day}`;
+  return time ? `${label} · ${time.slice(0, 5)}` : label;
 }
 
 function domainOf(url: string): string {
@@ -100,10 +135,10 @@ function MetaChip({ children }: { children: ReactNode }) {
 function RailCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
-      <div className="px-4 pt-3.5 pb-1">
+      <div className="px-5 pt-3.5 pb-1">
         <Overline>{title}</Overline>
       </div>
-      <div className="px-4 pb-3.5">{children}</div>
+      <div className="px-5 pb-3.5">{children}</div>
     </Card>
   );
 }
@@ -116,11 +151,13 @@ export function AnswerDetail({ answerId }: { answerId: number }) {
     [data?.answer.citations]
   );
 
-  if (!Number.isFinite(answerId)) {
+  const highlighter = useMemo(() => buildHighlighter(data?.mentions ?? []), [data?.mentions]);
+
+  if (!Number.isInteger(answerId) || answerId <= 0) {
     return (
       <div className="px-8 py-8">
         <Card>
-          <ErrorState message="That answer id is not a number." />
+          <ErrorState message="That is not a valid answer id." />
         </Card>
       </div>
     );
@@ -144,7 +181,7 @@ export function AnswerDetail({ answerId }: { answerId: number }) {
       <header className="flex flex-wrap items-start justify-between gap-4 px-8 pt-7 pb-6">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[13px] text-ink-muted">
-            <Link href="/prompts" className="text-accent transition-colors hover:text-ink">
+            <Link href="/prompts" className="rounded text-accent-ink transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
               Prompts
             </Link>
             <span aria-hidden>/</span>
@@ -160,13 +197,13 @@ export function AnswerDetail({ answerId }: { answerId: number }) {
               {PROVIDER_LABEL[answer.provider]} · {answer.model_id}
             </MetaChip>
             <MetaChip>Run #{answer.run_id}</MetaChip>
-            <MetaChip>{answer.created_at}</MetaChip>
+            <MetaChip>{formatStamp(answer.created_at)}</MetaChip>
           </div>
         ) : null}
       </header>
 
       <div className="grid grid-cols-1 gap-4 px-8 pb-12 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="px-6 py-5">
+        <Card className="px-5 py-5">
           {loading || !answer ? (
             <div className="flex flex-col gap-3">
               <Skeleton className="h-5 w-2/3" />
@@ -179,18 +216,22 @@ export function AnswerDetail({ answerId }: { answerId: number }) {
               <h2 className="text-[15px] font-semibold">“{data.queryText}”</h2>
               <p className="mt-1 text-[13px] text-ink-muted">
                 Answer collected with live web search
-                {answer.latency_ms ? ` · ${(answer.latency_ms / 1000).toFixed(1)}s` : ''} ·{' '}
+                {answer.latency_ms != null ? ` · ${(answer.latency_ms / 1000).toFixed(1)}s` : ''} ·{' '}
                 {answer.citations.length} citation{answer.citations.length === 1 ? '' : 's'}
               </p>
 
-              {answer.status === 'error' || !answer.answer_text ? (
+              {answer.status === 'error' ? (
                 <div className="mt-5 rounded-card border border-down/30 px-4 py-3 text-sm text-down">
                   This call failed: {answer.error ?? 'no answer was returned.'}
+                </div>
+              ) : !answer.answer_text ? (
+                <div className="mt-5 rounded-card border border-hairline px-4 py-3 text-sm text-ink-muted">
+                  The call succeeded but the model returned no text.
                 </div>
               ) : (
                 <div className="mt-5 flex flex-col gap-4 text-[15px] leading-7">
                   {answer.answer_text.split('\n\n').map((paragraph, i) => (
-                    <p key={i}>{highlight(paragraph)}</p>
+                    <p key={i}>{highlight(paragraph, highlighter)}</p>
                   ))}
                 </div>
               )}
@@ -201,7 +242,7 @@ export function AnswerDetail({ answerId }: { answerId: number }) {
                   Your brand
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-sm bg-ink/20" aria-hidden />
+                  <span className="h-2 w-2 rounded-sm bg-ink/[0.12]" aria-hidden />
                   Competitor
                 </span>
               </div>
@@ -293,9 +334,9 @@ export function AnswerDetail({ answerId }: { answerId: number }) {
                     />
                     <span className="min-w-0 flex-1 truncate">{entry.domain}</span>
                     {!entry.cited ? (
-                      <span className="text-[11px] text-ink-faint">retrieved</span>
+                      <span className="text-[11px] text-ink-muted">retrieved</span>
                     ) : null}
-                    <span className="numeric text-[12px] text-ink-faint">×{entry.count}</span>
+                    <span className="numeric text-[12px] text-ink-muted">×{entry.count}</span>
                   </li>
                 ))}
               </ul>

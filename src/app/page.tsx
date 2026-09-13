@@ -4,9 +4,9 @@ import { useMemo, useState } from 'react';
 import { PageHeader, RangeSelect, Segmented } from './_components/filters';
 import { Scoreboard } from './_components/scoreboard';
 import { StatRow } from './_components/stat-cards';
-import { Badge, Card, ErrorState } from './_components/ui';
+import { Card, ErrorBanner, ErrorState } from './_components/ui';
 import { VisibilityChart } from './_components/visibility-chart';
-import { USE_MOCK, useOverview, useRuns, type ProviderParam } from './_lib/fetcher';
+import { useOverview, useRuns, type ProviderParam } from './_lib/fetcher';
 
 const PROVIDERS: Array<{ value: ProviderParam; label: string }> = [
   { value: 'all', label: 'All models' },
@@ -41,11 +41,11 @@ export default function OverviewPage() {
   }, [runs.data]);
 
   const data = overview.data;
+  const filterKey = `${provider}:${days}`;
 
   return (
     <>
       <PageHeader title="Overview">
-        {USE_MOCK ? <Badge tone="warn">Mock data</Badge> : null}
         <Segmented
           label="Answer model"
           value={provider}
@@ -56,20 +56,27 @@ export default function OverviewPage() {
       </PageHeader>
 
       <div className="flex flex-col gap-4 px-8 pb-12">
-        {overview.error ? (
+        {overview.error && data === null ? (
           <Card>
             <ErrorState message={overview.error} onRetry={overview.refresh} />
           </Card>
         ) : (
           <>
+            {overview.error ? (
+              <ErrorBanner message={overview.error} onRetry={overview.refresh} />
+            ) : null}
             <StatRow data={data} />
+            {/* Keyed on the filter so hidden series and expanded rows reset with it,
+                rather than a line staying invisible after switching provider. The
+                prefixes matter: two siblings sharing a key makes React duplicate them. */}
             <VisibilityChart
+              key={`chart:${filterKey}`}
               series={data?.series ?? []}
               scoreboard={data?.scoreboard ?? []}
               liveFrom={liveFrom}
               loading={overview.loading}
             />
-            <Scoreboard rows={data?.scoreboard ?? []} loading={overview.loading} />
+            <Scoreboard key={`scoreboard:${filterKey}`} rows={data?.scoreboard ?? []} loading={overview.loading} />
           </>
         )}
       </div>

@@ -21,17 +21,19 @@ function parseRationale(rationale: string): { project: string | null; detail: st
   return { project: match[1].trim(), detail: (match[2] ?? '').trim() };
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Stamps come from SQLite's `datetime('now')`, which is UTC. Comparing them
+ * against the browser's local date to say "Today" is wrong west of UTC after
+ * about 19:00, so the date is shown plainly and the zone is stated.
+ */
 function formatScanTime(createdAt: string): string {
   const [date, time = ''] = createdAt.split(' ');
-  const hhmm = time.slice(0, 5);
-  const today = new Date();
-  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  if (date === todayIso) return hhmm ? `Today · ${hhmm}` : 'Today';
-
   const [, month, day] = date.split('-').map(Number);
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const label = `${names[(month ?? 1) - 1]} ${day}`;
-  return hhmm ? `${label} · ${hhmm}` : label;
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return createdAt;
+  const label = `${MONTHS[month - 1]} ${day}`;
+  return time ? `${label} · ${time.slice(0, 5)} UTC` : label;
 }
 
 function titleFor(suggestion: Suggestion): string {

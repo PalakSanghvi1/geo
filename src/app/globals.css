@@ -19,6 +19,9 @@
   --color-ink-faint: #9d9c95;
 
   --color-accent: #2a78d6;
+  /* Same hue, darkened for text: #2a78d6 on card is ~4.2:1, under AA for body
+     copy. Fills, dots and chart series keep the spec colour above. */
+  --color-accent-ink: #1b5fae;
   --color-accent-wash: #eef3fb;
 
   --color-up: #006300;
