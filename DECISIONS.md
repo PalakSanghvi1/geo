@@ -111,3 +111,18 @@ Append, don't rewrite. One line each, newest at the bottom.
 - **The digest's `date` argument labels only.** `metrics.ts` exposes no per-date query,
   so the numbers are always the latest day with answers; when the requested date differs,
   the digest says so rather than implying it is historical.
+- **The stub run-bridge is deleted now that `src/pipeline/runner.ts` is merged.** The
+  worker imports `executeRun` directly and uses the returned `RunSummary`. Keeping the
+  dynamic-import fallback would have meant a typo could silently stub a real run — the
+  opposite of what the reliability story needs.
+- **`src/integrations/slack.ts` does not import from `src/pipeline/`.** It declares the
+  fields of `RunSummary` it needs as a structural interface, so integrations depend on a
+  shape rather than on Workstream A's internals.
+- **Run completions post a per-provider coverage line** (`anthropic 45/45 ✅ ·
+  openai 44/45 ⚠️`) from the runner's own `byProvider` counts. This is where a degraded
+  run becomes visible without opening the dashboard.
+- **Gap flagged, not filled: there is no API route that pushes a suggestion to Linear.**
+  `src/app/api/suggestions/route.ts` handles approve/dismiss only and says pushing to
+  Linear is Workstream C's job, but the route lives in Workstream B's directory.
+  `createIssue(suggestion)` is exported and ready; someone who owns `src/app/` needs to
+  add the endpoint that calls it, or the demo's "push to Linear" button has no backend.

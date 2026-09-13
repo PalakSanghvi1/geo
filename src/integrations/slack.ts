@@ -17,8 +17,22 @@ import type { KnownBlock } from '@slack/types';
 import { PROJECT, PUBLIC_BASE_URL } from '../lib/config';
 import { get, run } from '../lib/db';
 import { getOverview, getSignals, recentDates } from '../lib/metrics';
-import { today } from '../worker/run-bridge';
 import { log, logError } from '../worker/log';
+
+/**
+ * The parts of the runner's `RunSummary` the digest uses. Declared structurally
+ * so this module never imports from `src/pipeline/` — integrations depend on
+ * shapes, not on Workstream A's internals.
+ */
+export interface RunCompletionSummary {
+  runId: number;
+  status: string;
+  total: number;
+  ok: number;
+  failed: number;
+  byProvider?: Record<string, { ok: number; failed: number }>;
+  elapsedMs?: number;
+}
 
 let app: App | null = null;
 let started = false;
@@ -51,6 +65,12 @@ export function queueRun(requestedBy: string, note?: string): number {
 /* ------------------------------------------------------------------ */
 /* Message bodies                                                      */
 /* ------------------------------------------------------------------ */
+
+/** Today in the local timezone as YYYY-MM-DD, matching `runs.run_date`. */
+function today(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 
 function pct(n: number): string {
   return `${n.toFixed(1)}%`;
@@ -335,19 +355,49 @@ export async function postDigest(date?: string): Promise<boolean> {
  * A completed run posts the full digest plus a one-line context footer naming
  * the run and whoever asked for it.
  */
-export async function notifyRunComplete(runId: number, requestedBy: string): Promise<void> {
+export async function notifyRunComplete(
+  runId: number,
+  requestedBy: string,
+  summary?: RunCompletionSummary
+): Promise<void> {
   try {
     const blocks = buildDigest();
-    blocks.push(context(runFooter(runId, requestedBy)));
+    blocks.push(context(runFooter(runId, requestedBy, summary)));
+    const providers = providerBreakdown(summary);
+    if (providers) blocks.push(context(providers));
     await postToChannel(`Run #${runId} complete — ${buildDigestText()}`, blocks);
   } catch (error) {
     logError('slack', `notifyRunComplete(${runId}) failed`, error);
   }
 }
 
+/**
+ * Per-provider coverage, straight from the runner's own summary. This is the
+ * line that shows a run degraded rather than failed — one provider dying is
+ * visible here before anyone opens the dashboard.
+ */
+function providerBreakdown(summary?: RunCompletionSummary): string | null {
+  if (!summary?.byProvider) return null;
+  const parts = Object.entries(summary.byProvider).map(([provider, counts]) => {
+    const total = counts.ok + counts.failed;
+    const mark = counts.failed === 0 ? '✅' : counts.ok === 0 ? '❌' : '⚠️';
+    return `${provider} ${counts.ok}/${total} ${mark}`;
+  });
+  return parts.length > 0 ? `Providers: ${parts.join(' · ')}` : null;
+}
+
 /** "Posted after run #12 (manual, 135/135 ok) · requested by slack:U123 · <link>". */
-function runFooter(runId: number, requestedBy: string): string {
+function runFooter(runId: number, requestedBy: string, summary?: RunCompletionSummary): string {
   let detail = '';
+  if (summary) {
+    // Prefer the runner's own numbers — authoritative and already in memory.
+    detail =
+      ` (${summary.status}` +
+      (summary.total > 0 ? `, ${summary.ok}/${summary.total} answers` : '') +
+      (summary.elapsedMs ? `, ${Math.round(summary.elapsedMs / 1000)}s` : '') +
+      `)`;
+    return `Posted after run #${runId}${detail} · requested by ${requestedBy} · <${PUBLIC_BASE_URL}/runs|Open the runs page>`;
+  }
   try {
     const row = get<RunRow>(
       `SELECT id, run_date, status, total_calls, ok_calls, failed_calls FROM runs WHERE id = ?`,

@@ -22,10 +22,16 @@ import type { RunRequest, RunTrigger } from '../lib/types';
 import { notifyRunComplete, notifyRunFailed, queueRun, startSlack, stopSlack } from '../integrations/slack';
 import { runLinearScan } from '../integrations/linear';
 import { publishWeeklyReport } from '../integrations/notion';
-import { executeRun, today } from './run-bridge';
+import { executeRun, type RunSummary } from '../pipeline/runner';
 import { log, logError } from './log';
 
 const POLL_INTERVAL_MS = 5_000;
+
+/** Today in the local timezone as YYYY-MM-DD, matching `runs.run_date`. */
+function today(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 
 /** One run at a time: 135 answer calls already saturate the provider budget. */
 let running = false;
@@ -73,17 +79,21 @@ async function processRequest(request: RunRequest): Promise<void> {
   );
 
   try {
-    const { runId, usedStub } = await executeRun(runDate, trigger);
+    const summary: RunSummary = await executeRun(runDate, trigger);
     dbRun(`UPDATE run_requests SET status = 'done', run_id = ? WHERE id = ?`, [
-      runId || null,
+      summary.runId,
       request.id,
     ]);
-    log('poller', `request #${request.id} done → run #${runId}${usedStub ? ' (stub runner)' : ''}`);
+    log(
+      'poller',
+      `request #${request.id} done → run #${summary.runId} ` +
+        `(${summary.status}, ${summary.ok}/${summary.total} ok, ${Math.round(summary.elapsedMs / 1000)}s)`
+    );
 
     // Every run that comes through the queue reports back to Slack with the
     // full digest. Backfill does not pass through here (it calls the runner
     // directly), so replaying history cannot spam the channel.
-    await notifyRunComplete(runId, request.requested_by);
+    await notifyRunComplete(summary.runId, request.requested_by, summary);
   } catch (error) {
     dbRun(`UPDATE run_requests SET status = 'failed' WHERE id = ?`, [request.id]);
     logError('poller', `request #${request.id} failed`, error);
