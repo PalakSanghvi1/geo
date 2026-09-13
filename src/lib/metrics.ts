@@ -142,17 +142,25 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
   const byBrandDate = new Map<string, BrandDay>();
   for (const r of rows) byBrandDate.set(`${r.brand}|${r.date}`, r);
 
-  const visibilityOn = (brand: string, date: string): number => {
+  /**
+   * Percentage of that day's ok answers mentioning the brand, or null when the
+   * day collected nothing under the current filter — a gap, not a zero.
+   */
+  const visibilityOn = (brand: string, date: string): number | null => {
     const total = totals.get(date)?.total ?? 0;
-    if (total === 0) return 0;
+    if (total === 0) return null;
     const hits = byBrandDate.get(`${brand}|${date}`)?.hits ?? 0;
     return (hits / total) * 100;
   };
 
+  /** Zero for the arithmetic that has to produce a number regardless. */
+  const visibilityOrZero = (brand: string, date: string): number => visibilityOn(brand, date) ?? 0;
+
   const series: SeriesPoint[] = [];
   for (const brand of brandNames) {
     for (const date of dates) {
-      series.push({ date, brand, visibility: round(visibilityOn(brand, date)) });
+      const value = visibilityOn(brand, date);
+      series.push({ date, brand, visibility: value === null ? null : round(value) });
     }
   }
 
@@ -162,10 +170,10 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
   const scoreboard: ScoreboardRow[] = [...brandNames]
     .map((brand) => {
       const latestRow = latest ? byBrandDate.get(`${brand}|${latest}`) : undefined;
-      const visibility = latest ? round(visibilityOn(brand, latest)) : 0;
+      const visibility = latest ? round(visibilityOrZero(brand, latest)) : 0;
       const priorMean =
         priorWindow.length > 0
-          ? priorWindow.reduce((sum, d) => sum + visibilityOn(brand, d), 0) / priorWindow.length
+          ? priorWindow.reduce((sum, d) => sum + visibilityOrZero(brand, d), 0) / priorWindow.length
           : visibility;
 
       // Fall back to the whole window when the latest day has no mention of this brand,

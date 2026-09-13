@@ -190,7 +190,10 @@ export function selectChartBrands(options: VisibilityChartOptions): ChartBrandSe
   for (const point of series) {
     if (!point || typeof point.brand !== 'string') continue;
     const entry = totals.get(point.brand) ?? { sum: 0, count: 0 };
-    entry.sum += Number.isFinite(point.visibility) ? point.visibility : 0;
+    // A gap contributes nothing to the ranking average, and is not a zero.
+    entry.sum += typeof point.visibility === 'number' && Number.isFinite(point.visibility)
+      ? point.visibility
+      : 0;
     entry.count += 1;
     totals.set(point.brand, entry);
   }
@@ -240,6 +243,7 @@ export function buildVisibilityChartConfig(options: VisibilityChartOptions): Rec
   const byBrandDate = new Map<string, number>();
   for (const point of series) {
     if (!point || typeof point.brand !== 'string' || typeof point.date !== 'string') continue;
+    if (point.visibility === null) continue;
     byBrandDate.set(`${point.brand}|${point.date}`, point.visibility);
   }
 

@@ -138,7 +138,15 @@ export interface ExtractionResult {
 export interface SeriesPoint {
   date: string;
   brand: string;
-  visibility: number;
+  /**
+   * null when that day collected no answers under the current provider filter.
+   *
+   * Distinct from 0, which means answers were collected and none mentioned the
+   * brand. Filter to Gemini and the two backfill days have no Gemini answers at
+   * all; reporting them as 0% would claim nobody was mentioned on a day nothing
+   * was asked.
+   */
+  visibility: number | null;
 }
 
 export interface ScoreboardRow {
