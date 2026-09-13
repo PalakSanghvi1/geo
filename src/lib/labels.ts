@@ -45,15 +45,33 @@ export function headlineBasisPhrase(dataset: DatasetShape): string | null {
     return measuredDays === 0 ? 'no measured day in this window' : null;
   }
   if (headlineIsCurrent) return null;
-  return `as of ${formatDay(headlineDate)} — the most recent measured day`;
+  return `as of ${formatRunDay(headlineDate)} — the most recent measured day`;
 }
 
-/** "2026-09-10" → "Sep 10". */
-export function formatDay(iso: string): string {
-  const [, month, day] = iso.split('-').map(Number);
-  if (!Number.isFinite(month) || !Number.isFinite(day)) return iso;
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${names[(month ?? 1) - 1]} ${day}`;
+/**
+ * One place that turns a run date into a label.
+ *
+ * Every surface that shows a run day — the visibility chart's x axis, its tooltip,
+ * the Runs table, the stat card's "as of" stamp, the Slack digest — reads from here,
+ * so "Sep 8" means the same thing and is written the same way wherever it appears.
+ * Two separate copies had already drifted apart in wording while agreeing by luck on
+ * output; this lives beside the other wording helpers so a third does not appear.
+ *
+ * Deliberately string arithmetic, not `Date`: a run date is a calendar day, and
+ * parsing 'YYYY-MM-DD' through Date reads it as UTC midnight, which renders as the
+ * previous day for anyone west of Greenwich.
+ */
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/** '2026-09-08' → 'Sep 8'. Anything unparseable is returned untouched. */
+export function formatRunDay(value: string): string {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!parts) return value;
+  const month = MONTHS[Number(parts[2]) - 1];
+  return month ? `${month} ${Number(parts[3])}` : value;
 }
 
 /** "Claude, GPT and Gemini" — only the providers that actually returned answers. */
