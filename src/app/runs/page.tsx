@@ -360,7 +360,7 @@ export default function RunsPage() {
         <RunNowButton pending={queueing} onClick={runNow} />
       </PageHeader>
 
-      <div className="flex flex-col gap-4 px-8 pb-12">
+      <div className="flex flex-col gap-4 px-4 pb-12 md:px-8">
         {error && data === null ? (
           <Card>
             <ErrorState message={error} onRetry={refresh} />
@@ -383,7 +383,7 @@ export default function RunsPage() {
                   hint="The first scheduled run lands overnight — or start one now."
                 />
               ) : (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm">
                   <HeaderRow />
                   {loading ? (
                     <TableSkeleton />
@@ -394,7 +394,7 @@ export default function RunsPage() {
                       ))}
                     </tbody>
                   )}
-                </table>
+                </table></div>
               )}
               <p className={cx(CELL, 'border-t border-hairline text-[13px] text-ink-muted')}>
                 Failed calls retry twice with backoff; a run never crashes — failures become rows.

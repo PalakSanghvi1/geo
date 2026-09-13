@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -26,6 +26,14 @@ import { Badge, Card, CardTitle, Skeleton, cx } from './ui';
 const CHART_H = 288;
 const X_AXIS_H = 48;
 const MARGIN = { top: 12, right: 124, bottom: 4, left: 4 };
+/**
+ * On a phone the 124px reserved for end labels is more than a third of the
+ * width, which squeezes the plot to a sliver. Below this the labels are dropped
+ * and the margin collapses — the legend above already names every line, so no
+ * identity is lost, only a convenience.
+ */
+const END_LABEL_MIN_WIDTH = 768;
+const MOBILE_MARGIN = { top: 12, right: 12, bottom: 4, left: 4 };
 const PLOT_H = CHART_H - MARGIN.top - MARGIN.bottom - X_AXIS_H;
 /** Minimum vertical gap between two end labels. */
 const LABEL_GAP = 15;
@@ -44,6 +52,19 @@ const TICK_COUNT = 5;
 interface Row {
   date: string;
   [brand: string]: string | number | null;
+}
+
+/** True once the viewport is wide enough to spend room on end labels. */
+function useWideEnough(): boolean {
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const q = window.matchMedia(`(min-width: ${END_LABEL_MIN_WIDTH}px)`);
+    const sync = () => setWide(q.matches);
+    sync();
+    q.addEventListener('change', sync);
+    return () => q.removeEventListener('change', sync);
+  }, []);
+  return wide;
 }
 
 function pivot(series: SeriesPoint[], brands: Array<{ brand: string }>): Row[] {
@@ -151,6 +172,8 @@ export function VisibilityChart({
     });
 
   /** Brand labels down the right gutter, nudged apart where values crowd. */
+  const wide = useWideEnough();
+
   const endLabels = useMemo(() => {
     const last = rows[rows.length - 1];
     if (!last) return [];
@@ -226,7 +249,7 @@ export function VisibilityChart({
         ) : (
           <div className="relative">
             <ResponsiveContainer width="100%" height={CHART_H}>
-            <LineChart data={rows} margin={MARGIN}>
+            <LineChart data={rows} margin={wide ? MARGIN : MOBILE_MARGIN}>
               <CartesianGrid stroke={HAIRLINE} vertical={false} />
               <XAxis
                 dataKey="date"
@@ -285,24 +308,26 @@ export function VisibilityChart({
               )}
             </LineChart>
             </ResponsiveContainer>
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0 w-[124px]"
-              aria-hidden
-            >
-              {endLabels.map((label) => (
-                <span
-                  key={label.brand}
-                  className="absolute left-2.5 text-[11px] whitespace-nowrap"
-                  style={{
-                    top: label.y - 7,
-                    color: label.isSelf ? INK : INK_MUTED,
-                    fontWeight: label.isSelf ? 600 : 400,
-                  }}
-                >
-                  {label.brand} {Math.round(label.value)}%
-                </span>
-              ))}
-            </div>
+            {wide ? (
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 w-[124px]"
+                aria-hidden
+              >
+                {endLabels.map((label) => (
+                  <span
+                    key={label.brand}
+                    className="absolute left-2.5 text-[11px] whitespace-nowrap"
+                    style={{
+                      top: label.y - 7,
+                      color: label.isSelf ? INK : INK_MUTED,
+                      fontWeight: label.isSelf ? 600 : 400,
+                    }}
+                  >
+                    {label.brand} {Math.round(label.value)}%
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

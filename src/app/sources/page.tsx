@@ -278,7 +278,7 @@ export default function SourcesPage() {
         <RangeSelect label="Date range" value={days} options={RANGES} onChange={setDays} />
       </PageHeader>
 
-      <div className="flex flex-col gap-4 px-8 pb-12">
+      <div className="flex flex-col gap-4 px-4 pb-12 md:px-8">
         {sources.error && sources.data === null ? (
           <Card>
             <ErrorState message={sources.error} onRetry={sources.refresh} />
@@ -306,7 +306,7 @@ export default function SourcesPage() {
                 />
               ) : (
                 <>
-                  <table className="w-full text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
+                  <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
                     <HeaderRow />
                     {sources.loading ? (
                       <SourcesSkeleton />
@@ -321,7 +321,7 @@ export default function SourcesPage() {
                         />
                       ))
                     )}
-                  </table>
+                  </table></div>
 
                   {rows.length > COLLAPSED ? (
                     <button

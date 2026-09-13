@@ -228,7 +228,7 @@ export default function PromptsPage() {
         </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-4 px-8 pb-12">
+      <div className="flex flex-col gap-4 px-4 pb-12 md:px-8">
         {prompts.error && prompts.data === null ? (
           <Card>
             <ErrorState message={prompts.error} onRetry={prompts.refresh} />
@@ -262,14 +262,14 @@ export default function PromptsPage() {
                   />
                 )
               ) : (
-                <table className="w-full text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
+                <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm [&_tbody:last-of-type_tr:last-of-type]:border-0">
                   <HeaderRow />
                   {prompts.loading ? (
                     <PromptsSkeleton />
                   ) : (
                     visible.map((group) => <GroupRows key={group.base.queryId} group={group} />)
                   )}
-                </table>
+                </table></div>
               )}
             </Card>
           </>
