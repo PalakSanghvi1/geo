@@ -50,3 +50,8 @@ logs/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# The demo script is deliberately local-only. It names what is fabricated, what is
+# untested and what not to say on camera — useful to the team, not something to ship
+# in a public repo or onto the server.
+docs/demo-script.md
