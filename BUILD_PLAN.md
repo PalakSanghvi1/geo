@@ -39,8 +39,8 @@ We track **Lemma** (https://www.uselemma.ai) — production monitoring / observa
 | Topic | Decision |
 |---|---|
 | Database | **SQLite** (better-sqlite3, WAL mode). No Supabase, no auth — single-tenant demo. |
-| Frontend | **Next.js (App Router) + Tailwind + shadcn/ui + Recharts**, `basePath: "/GEO"` |
-| Hosting | Ubuntu VPS at **5.78.222.163**, `ssh root@5.78.222.163` (passwordless, ed25519 key already trusted). Repo at `/var/www/html/GEO`, nginx reverse proxy `http://5.78.222.163/GEO` → Node on port 3100. No domain, no HTTPS. pm2 for processes. Confirmed on the box: Node v22.22.1, nginx 1.28.3. |
+| Frontend | **Next.js (App Router) + Tailwind + shadcn/ui + Recharts**, `basePath: "/geo"` |
+| Hosting | Ubuntu VPS at **5.78.222.163**, `ssh root@5.78.222.163` (passwordless, ed25519 key already trusted). Repo at `/var/www/html/geo`, nginx reverse proxy `http://5.78.222.163/geo` → Node on port 3100. No domain, no HTTPS. pm2 for processes. Confirmed on the box: Node v22.22.1, nginx 1.28.3. |
 | Repo | **public** GitHub repo `github.com/PalakSanghvi1/geo`. NEVER commit secrets — public repo. |
 | Code flow | Write locally → push to GitHub → `./deploy.sh` pulls on the VPS. See §4.1. |
 | Answer models | Claude **Sonnet 5**, OpenAI **GPT 5.6 Terra**, **Gemini 3.1 Pro** — all in web-search/grounded mode. Exact API model IDs must be **verified at build time** (see §6 Workstream A, Phase A1). All model IDs live in `src/lib/config.ts` with fallbacks. |
@@ -57,7 +57,7 @@ We track **Lemma** (https://www.uselemma.ai) — production monitoring / observa
 ```
                     ┌──────────────────────── VPS (Ubuntu) ────────────────────────┐
                     │                                                              │
- Judges' browser ──▶│ nginx :80 /GEO ──▶ pm2: geo-web (Next.js :3100)              │
+ Judges' browser ──▶│ nginx :80 /geo ──▶ pm2: geo-web (Next.js :3100)              │
                     │                        │  reads/writes                       │
                     │                        ▼                                     │
                     │                   data/geo.db (SQLite, WAL)                  │
@@ -89,7 +89,7 @@ geo/
 ├─ .env.example               # every env var, no values
 ├─ .gitignore                 # includes .env, data/, node_modules/, .next/
 ├─ package.json               # single package; no monorepo tooling
-├─ next.config.js             # basePath '/GEO', output 'standalone'
+├─ next.config.js             # basePath '/geo', output 'standalone'
 ├─ ecosystem.config.js        # pm2: geo-web + geo-worker
 ├─ deploy.sh                  # git pull, npm ci, build, migrate, pm2 restart
 ├─ data/                      # geo.db lives here (gitignored)
@@ -264,8 +264,8 @@ Dev B laptop ├─ push branch ──▶ GitHub: PalakSanghvi1/geo ──┐
 Dev C laptop ┘                  (main = always deployable)  │
                                                             │ git pull (./deploy.sh)
                                                             ▼
-                                        VPS 5.78.222.163 : /var/www/html/GEO
-                                        nginx :80 /GEO → pm2 geo-web :3100
+                                        VPS 5.78.222.163 : /var/www/html/geo
+                                        nginx :80 /geo → pm2 geo-web :3100
                                                        → pm2 geo-worker
 ```
 
@@ -274,7 +274,7 @@ Dev C laptop ┘                  (main = always deployable)  │
   scratch data, never the VPS database.
 - **Push to GitHub at each milestone** (end of every phase and at every checkpoint).
   That push is what makes the work exist for the rest of the team.
-- **Deploying is always: SSH to the VPS, `cd /var/www/html/GEO`, `./deploy.sh`** —
+- **Deploying is always: SSH to the VPS, `cd /var/www/html/geo`, `./deploy.sh`** —
   which does `git pull` + `npm ci` + migrate + build + `pm2 restart`. Never `scp`,
   never edit a file over SSH, never `git push` from the VPS. If something on the VPS
   looks wrong, fix it locally, push, and redeploy.
@@ -303,7 +303,7 @@ Dev C laptop ┘                  (main = always deployable)  │
 
 1. **GitHub**: create public repo `geo` (via `gh repo create PalakSanghvi1/geo --public` or web UI). Add Dev B and Dev C as collaborators. Commit this `BUILD_PLAN.md`, an empty `DECISIONS.md`, and the four mockup PNGs into `docs/mockups/` (exported from the design canvas beforehand — they are Dev B's visual spec, see §7).
 2. **Scaffold locally** (do NOT develop directly on the VPS):
-   - `npx create-next-app@latest` (TypeScript, Tailwind, App Router, src dir). Set `next.config.js`: `basePath: '/GEO'`, `output: 'standalone'`.
+   - `npx create-next-app@latest` (TypeScript, Tailwind, App Router, src dir). Set `next.config.js`: `basePath: '/geo'`, `output: 'standalone'`.
    - `npx shadcn@latest init`, then add components: `card button table badge tabs skeleton sonner`.
    - `npm i better-sqlite3 @anthropic-ai/sdk openai @google/genai @slack/bolt @notionhq/client node-cron recharts date-fns`
    - `npm i -D tsx @types/better-sqlite3`
@@ -314,23 +314,39 @@ Dev C laptop ┘                  (main = always deployable)  │
    ```bash
    sudo apt update && sudo apt install -y build-essential python3 sqlite3
    sudo npm i -g pm2
-   cd /var/www/html && git clone https://github.com/PalakSanghvi1/geo GEO && cd GEO
+   cd /var/www/html && git clone https://github.com/PalakSanghvi1/geo geo && cd geo
    cp .env.example .env    # then fill values as keys arrive from Dev B
    npm ci && npm run migrate
    ```
-4. **nginx**: add inside the existing `server { listen 80; … }` block (in `/etc/nginx/sites-available/default` or equivalent), then `sudo nginx -t && sudo systemctl reload nginx`:
+   **This box is shared.** `/var/www/html` is a live PHP staging portal with its own git
+   repo and its own `.env` — our app lives entirely inside `/var/www/html/geo` and must
+   never touch the parent directory, its `.env`, or its nginx rules beyond adding one
+   location block.
+4. **nginx**: the site is served by `/etc/nginx/sites-enabled/cape-fear-staging`, whose
+   `server { listen 80 default_server; … }` block contains **regex** deny rules (e.g.
+   `location ~* \.(md|sh|…)$`) and `^~` prefix denies for `/data/` and `/docs/`. A plain
+   `location /geo` would lose to those regexes, so use the `^~` form, which outranks them.
+   Back the file up first, add the block inside that `server { … }`, then
+   `nginx -t && systemctl reload nginx` — **never reload without a passing `nginx -t`**,
+   a bad config takes the existing portal down too:
    ```nginx
-   location /GEO {
+   location ^~ /geo {
      proxy_pass http://127.0.0.1:3100;
      proxy_http_version 1.1;
+     proxy_set_header Upgrade $http_upgrade;
+     proxy_set_header Connection 'upgrade';
      proxy_set_header Host $host;
      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+     proxy_set_header X-Forwarded-Proto $scheme;
+     proxy_cache_bypass $http_upgrade;
    }
    ```
-   (Next.js has `basePath: '/GEO'`, so pass the path through unchanged — no trailing-slash rewrite.) Confirm port 80 reachable from outside (`ufw status`; allow 'Nginx Full' or 80 if needed).
+   (Next.js has `basePath: '/geo'`, so pass the path through unchanged — no trailing-slash
+   rewrite.) Confirm port 80 is reachable from outside (`ufw status`; allow 'Nginx Full' or
+   80 if needed).
 5. **pm2**: `ecosystem.config.js` defining `geo-web` (`npm run start`) and `geo-worker` (`npm run worker`). `pm2 start ecosystem.config.js && pm2 save && pm2 startup` (run the printed command). It's fine that both processes are mostly stubs right now.
 6. **deploy.sh** (committed): `git pull && npm ci && npm run build && npm run migrate && pm2 restart geo-web geo-worker`. From here on, deploying = `ssh` + `./deploy.sh`.
-7. Verify `http://5.78.222.163/GEO` serves the Next.js default page. Announce "VPS live".
+7. Verify `http://5.78.222.163/geo` serves the Next.js default page. Announce "VPS live".
 
 ### Dev B: accounts & keys (then wait for scaffold push)
 
@@ -410,7 +426,7 @@ Dev C laptop ┘                  (main = always deployable)  │
 2. Implement `src/lib/metrics.ts` fully (visibility/position/sentiment/day series, per-provider splits, source aggregation from `answers.citations` grouped by domain, deltas vs 7-day average). Implement the read API routes in `src/app/api/` **against the shapes agreed in §7** — B is building UI on these.
 3. **Backfill** (`backfill.ts`): for day offsets −7…−1: `executeRun(date, 'backfill')`, sequential. **Start it by ~12:30** on the VPS (`nohup npm run backfill &` or a pm2 one-off) — 7 runs × ~6–8 min ≈ 50–60 min, ~$15–25. While it runs, keep coding locally.
    - After it completes, run once more for **today** with trigger `scheduled` so the dashboard has a current day.
-4. Deploy at Checkpoint 2 (13:30): merge all, `./deploy.sh`, verify dashboard shows real backfilled data at `http://5.78.222.163/GEO`.
+4. Deploy at Checkpoint 2 (13:30): merge all, `./deploy.sh`, verify dashboard shows real backfilled data at `http://5.78.222.163/geo`.
 
 ### Phase A3 (13:30–15:00): evals + reliability polish
 
@@ -418,7 +434,7 @@ Dev C laptop ┘                  (main = always deployable)  │
    - `export-evalset.ts`: sample 20 ok answers stratified across providers → `eval/evalset.json`: `[{answer_id, answer_text, expected: null}]`.
    - **Hand-label them** (~25 min, split among whoever is free): fill `expected` with the mentioned brands in order (+sentiment). Human labels, not LLM labels — say so in the brief.
    - `eval.ts`: re-run `extract()` on each labeled answer; compute **mention precision/recall** (brand detected vs expected), **position exact-match %**, **sentiment agreement %**. Print a table; also write `eval/results.json`. If precision or recall < 0.9, spend up to 30 min improving the extraction prompt and re-run (this iteration loop is itself a demo/brief talking point).
-2. Reliability polish: ensure `partial` runs render correctly everywhere; kill a provider key locally and confirm a run completes as `partial` with the other two providers (screenshot this for the brief); add `/GEO/api/runs` including live in-flight counts.
+2. Reliability polish: ensure `partial` runs render correctly everywhere; kill a provider key locally and confirm a run completes as `partial` with the other two providers (screenshot this for the brief); add `/geo/api/runs` including live in-flight counts.
 3. Support `DEMO_CADENCE_MINUTES` in the worker (e.g. 20) so fresh runs land during judging without manual triggers.
 
 ### Phase A4 (15:00–16:00): freeze support
@@ -477,7 +493,7 @@ You own the **two-minute demo recording** (§10 script) after the 15:00 freeze �
 1. **Worker** (`src/worker/index.ts`): starts Slack bot; `node-cron` for daily-run schedule (`0 9 * * *`) and weekly Notion/Linear jobs (stubs now); a 5-second poller on `run_requests` (`pending` → mark `picked_up` → call A's `executeRun` → mark `done`/`failed` → fire Slack completion message). Until A's runner is merged, call a stub that sleeps 10 s.
 2. **Slack** (`@slack/bolt`, `socketMode: true`): 
    - `/geo ping` → "pong 🏓" (Checkpoint 1 proof).
-   - `/geo run [note]` → insert `run_request` (requested_by `slack:<user>`), reply "🔎 Run queued — I'll post results here." On completion, post: visibility now vs yesterday, biggest mover, link `http://5.78.222.163/GEO/runs`.
+   - `/geo run [note]` → insert `run_request` (requested_by `slack:<user>`), reply "🔎 Run queued — I'll post results here." On completion, post: visibility now vs yesterday, biggest mover, link `http://5.78.222.163/geo/runs`.
    - `/geo status` → today's numbers one-liner.
 3. Merge at Checkpoint 1.
 
@@ -562,7 +578,7 @@ Sections: **System** (architecture diagram from §1.5, stack, single-code-path f
 
 ## 12. Definition of done (check at 15:00)
 
-- [ ] `http://5.78.222.163/GEO` shows Overview with ≥8 days of data (7 backfill + today) for 10 brands across 3 providers
+- [ ] `http://5.78.222.163/geo` shows Overview with ≥8 days of data (7 backfill + today) for 10 brands across 3 providers
 - [ ] A live `manual` run completes end-to-end from both the dashboard button and `/geo run`
 - [ ] Runs page shows a partial run somewhere in history (or a screenshot of the kill-a-provider test exists for the brief)
 - [ ] `npm run eval` prints precision/recall from ≥20 hand-labeled answers; numbers are in the brief

@@ -24,7 +24,7 @@ cp .env.example .env      # fill in API keys
 npm run migrate           # create the SQLite schema
 npm run seed              # brands + 15 base queries + generated variations
 npm run run-once          # one live run (add --limit 3 while testing)
-npm run dev               # dashboard at http://localhost:3100/GEO
+npm run dev               # dashboard at http://localhost:3100/geo
 npm run worker            # cron + Slack bot + run_requests poller
 ```
 
@@ -44,7 +44,7 @@ npm run worker            # cron + Slack bot + run_requests poller
 ## Architecture
 
 ```
-nginx :80 /GEO ──▶ pm2 geo-web (Next.js :3100) ──┐
+nginx :80 /geo ──▶ pm2 geo-web (Next.js :3100) ──┐
                                                  ├──▶ data/geo.db (SQLite, WAL)
 pm2 geo-worker ──────────────────────────────────┘
   ├─ node-cron        daily run + weekly Notion/Linear jobs
@@ -67,4 +67,4 @@ runs therefore share one code path.
 
 Design reference for the dashboard: `docs/mockups/`.
 
-Deploy: `ssh root@5.78.222.163`, then `cd /var/www/html/GEO && ./deploy.sh`.
+Deploy: `ssh root@5.78.222.163`, then `cd /var/www/html/geo && ./deploy.sh`.

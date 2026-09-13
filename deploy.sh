@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy on the VPS:  cd /var/www/html/GEO && ./deploy.sh
+# Deploy on the VPS:  cd /var/www/html/geo && ./deploy.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -23,5 +23,5 @@ else
 fi
 pm2 save
 
-echo "==> done — http://5.78.222.163/GEO"
+echo "==> done — http://5.78.222.163/geo"
 pm2 status

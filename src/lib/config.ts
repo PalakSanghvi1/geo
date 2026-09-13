@@ -136,6 +136,6 @@ export const VARIATIONS_PER_QUERY = 2;
 /* ------------------------------------------------------------------ */
 
 export const PUBLIC_BASE_URL =
-  process.env.PUBLIC_BASE_URL?.replace(/\/$/, '') ?? 'http://5.78.222.163/GEO';
+  process.env.PUBLIC_BASE_URL?.replace(/\/$/, '') ?? 'http://5.78.222.163/geo';
 
 export const DATABASE_PATH = process.env.DATABASE_PATH ?? './data/geo.db';
