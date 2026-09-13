@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Mono, Instrument_Sans } from 'next/font/google';
 import { PROJECT } from '@/lib/config';
-import { Sidebar } from './_components/sidebar';
+import { AppShell } from './_components/app-shell';
 import './globals.css';
 
 const sans = Instrument_Sans({
@@ -24,10 +24,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
