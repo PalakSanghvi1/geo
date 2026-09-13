@@ -1,0 +1,7 @@
+# Dev A works on Windows; the VPS is Linux. Anything the VPS executes or sources
+# must keep LF endings, or bash sees a trailing \r and fails in confusing ways
+# (a real bug we hit: a CRLF .env made curl report "Malformed input to a URL").
+*.sh        text eol=lf
+*.env       text eol=lf
+.env.example text eol=lf
+ecosystem.config.js text eol=lf

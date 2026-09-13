@@ -25,7 +25,9 @@ export const ANSWER_MODELS: ModelChoice[] = [
     provider: 'anthropic',
     label: 'Claude Sonnet 5',
     primary: 'claude-sonnet-5',
-    fallback: 'claude-sonnet-4-5',
+    // Verified 2026-09-13 against the account's model list; claude-sonnet-4-5
+    // (undated) is not a valid id there.
+    fallback: 'claude-sonnet-4-6',
   },
   {
     provider: 'openai',

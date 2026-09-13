@@ -35,5 +35,20 @@ Append, don't rewrite. One line each, newest at the bottom.
   would otherwise outrank a plain prefix match. A timestamped `.bak.<epoch>` of the
   config sits beside it. Always `nginx -t` before `systemctl reload nginx`: a bad config
   takes the portal down with us.
+- **Model ids verified 2026-09-13** via `npm run verify-models` (hits each provider's
+  REST list endpoint, no SDK guessing). Confirmed real: `claude-sonnet-5`,
+  `gpt-5.6-terra`, `claude-haiku-4-5-20251001`. The Anthropic fallback was wrong —
+  `claude-sonnet-4-5` does not exist on this account; changed to `claude-sonnet-4-6`.
+- **Gemini is blocked, not broken.** Both ListModels and GenerateContent return 403
+  `API_KEY_SERVICE_BLOCKED` (`PERMISSION_DENIED`, project 528923636441): the key carries
+  an API restriction that excludes `generativelanguage.googleapis.com`. Fix is in the
+  Google Cloud console (allow that API on the key, or mint an unrestricted key from AI
+  Studio) — no code change. Until then the runner degrades to two providers and days
+  come out as `partial`, which is the designed behaviour.
+- **CRLF bit us once already.** The `.env` uploaded from Windows had CRLF endings, so
+  `. ./.env` in bash left a trailing `\r` on every value and curl reported "Malformed
+  input to a URL". Node is immune (our `env.ts` trims) but shell tooling is not. Added
+  `.gitattributes` forcing LF on `*.sh`, `.env.example` and `ecosystem.config.js`, and
+  ran `sed -i 's/\r$//' .env` on the VPS. Re-run that after any future upload from Windows.
 - **pm2 boot persistence** enabled (`pm2 startup systemd` + `pm2 save`, unit `pm2-root`
   is `enabled`), so both processes come back after a VPS reboot.
