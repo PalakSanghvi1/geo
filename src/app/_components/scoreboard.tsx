@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { deltaColumnLabel } from '@/lib/labels';
 import type { ScoreboardRow } from '@/lib/types';
 import { assignBrandColors } from './brand-colors';
 import { Badge, Button, Card, Delta, EmptyState, METER_W, Meter, Skeleton, cx } from './ui';
@@ -11,7 +12,7 @@ const COLLAPSED = 6;
 const CELL = 'px-5 py-3';
 const NUM = cx(CELL, 'numeric whitespace-nowrap');
 
-function HeaderRow() {
+function HeaderRow({ deltaWindowDays }: { deltaWindowDays: number }) {
   return (
     <thead>
       <tr className="border-b border-hairline">
@@ -25,7 +26,7 @@ function HeaderRow() {
           Visibility
         </th>
         <th scope="col" className={cx(CELL, 'overline text-left')}>
-          Δ 7d
+          {deltaColumnLabel(deltaWindowDays)}
         </th>
         <th scope="col" className={cx(CELL, 'overline text-left')}>
           Position
@@ -73,14 +74,23 @@ function ScoreboardSkeleton() {
   );
 }
 
-export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?: boolean }) {
+export function Scoreboard({
+  rows,
+  deltaWindowDays = 0,
+  loading,
+}: {
+  rows: ScoreboardRow[];
+  /** How many days `delta7` averaged over; labels the Δ column honestly. */
+  deltaWindowDays?: number;
+  loading?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   if (loading) {
     return (
       <Card>
         <table className="w-full text-sm">
-          <HeaderRow />
+          <HeaderRow deltaWindowDays={deltaWindowDays} />
           <ScoreboardSkeleton />
         </table>
       </Card>
@@ -104,7 +114,7 @@ export function Scoreboard({ rows, loading }: { rows: ScoreboardRow[]; loading?:
         <caption className="sr-only">
           Competitor scoreboard, ranked by share of answers mentioning each brand
         </caption>
-        <HeaderRow />
+        <HeaderRow deltaWindowDays={deltaWindowDays} />
         <tbody>
           {visible.map((row, i) => (
             <tr

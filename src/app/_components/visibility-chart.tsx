@@ -11,9 +11,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ScoreboardRow, SeriesPoint } from '@/lib/types';
+import { datasetCaption, isMostlySynthetic } from '@/lib/labels';
+import type { DatasetShape, ScoreboardRow, SeriesPoint } from '@/lib/types';
 import { HAIRLINE, INK, INK_FAINT, INK_MUTED, chartBrands } from './brand-colors';
-import { Card, CardTitle, Skeleton, cx } from './ui';
+import { Badge, Card, CardTitle, Skeleton, cx } from './ui';
 
 /**
  * Chart geometry is pinned so the end-label gutter can be positioned in HTML
@@ -81,11 +82,14 @@ function ChartTooltip({
 export function VisibilityChart({
   series,
   scoreboard,
+  dataset,
   liveFrom,
   loading,
 }: {
   series: SeriesPoint[];
   scoreboard: ScoreboardRow[];
+  /** Provenance of what is plotted; null while the first response is in flight. */
+  dataset?: DatasetShape | null;
   /** First run-date that was collected live rather than backfilled. */
   liveFrom?: string;
   loading?: boolean;
@@ -115,6 +119,9 @@ export function VisibilityChart({
     if (out[out.length - 1] !== last) out.push(last);
     return out;
   }, [rows]);
+
+  const caption = dataset ? datasetCaption(dataset) : null;
+  const illustrative = dataset ? isMostlySynthetic(dataset) : false;
 
   const toggle = (brand: string) =>
     setHidden((prev) => {
@@ -147,10 +154,20 @@ export function VisibilityChart({
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-1">
-        <CardTitle>
-          Visibility <span className="text-ink-muted">— % of answers mentioning each brand</span>
-        </CardTitle>
+      <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4 pb-1">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>
+              Visibility <span className="text-ink-muted">— % of answers mentioning each brand</span>
+            </CardTitle>
+            {/* Stated at the title, not in a tooltip: a reader who finds out on the Runs
+                page that most of this line was generated will discount the rest. */}
+            {illustrative ? <Badge tone="warn">ILLUSTRATIVE HISTORY</Badge> : null}
+          </div>
+          {caption ? (
+            <p className="mt-1 max-w-2xl text-[12.5px] text-ink-muted">{caption}</p>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
           {brands.map((b) => {
             const off = hidden.has(b.brand);

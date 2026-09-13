@@ -295,7 +295,7 @@ export function buildTakeawaysPrompt(week: WeekAggregates): string {
     .map(
       (row, index) =>
         `${index + 1}. ${row.brand}${row.isSelf ? ' (us)' : ''} — visibility ${pct(row.visibility)}, ` +
-        `7-day delta ${row.delta7 >= 0 ? '+' : ''}${row.delta7.toFixed(1)} pts, ` +
+        `delta ${row.delta7 >= 0 ? '+' : ''}${row.delta7.toFixed(1)} pts, ` +
         `avg position ${positionText(row.avgPosition)}, sentiment ${sentimentText(row.sentiment)}`
     );
 
@@ -315,12 +315,12 @@ export function buildTakeawaysPrompt(week: WeekAggregates): string {
     'search, then extract every brand named in each answer. Visibility = the share of that day’s',
     'successful answers that mention a brand at least once. Position = the average order the brand',
     'is named in (1 = named first, lower is better). Sentiment = the average tone of the mentions,',
-    'on a -100..+100 scale. The "7-day delta" is the latest run day’s visibility minus the mean of',
+    'on a -100..+100 scale. The "delta" is the latest run day’s visibility minus the mean of',
     'the seven run days before it, in percentage points.',
     '',
     `WEEK ENDING ${week.weekEndingDate} (${windowLine}):`,
     self
-      ? `${self.brand} visibility ${pct(self.visibility)}, 7-day delta ${self.delta7 >= 0 ? '+' : ''}${self.delta7.toFixed(1)} pts, ` +
+      ? `${self.brand} visibility ${pct(self.visibility)}, delta ${self.delta7 >= 0 ? '+' : ''}${self.delta7.toFixed(1)} pts, ` +
         `avg position ${positionText(self.avgPosition)}, sentiment ${sentimentText(self.sentiment)}, ` +
         `coverage ${self.coverageToday.ok}/${self.coverageToday.total} answers on the latest run day.`
       : `No scored answers for ${PROJECT.name} in this window.`,
@@ -459,7 +459,7 @@ function scoreboardTable(scoreboard: ScoreboardRow[]): BlockObjectRequest {
       cells: [
         rt('Brand'),
         rt('Visibility'),
-        rt('Δ vs 7-day avg'),
+        rt('Δ vs prior avg'),
         rt('Avg position'),
         rt('Sentiment'),
       ],

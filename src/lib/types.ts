@@ -155,10 +155,41 @@ export interface CoveragePoint {
   okPct: number;
 }
 
+/**
+ * What the dataset actually is, as opposed to what the plan assumed it would be.
+ *
+ * Every field here exists because a screen was asserting something the data did not
+ * support: a delta labelled "7-day" computed over one day, a model tab for a provider
+ * that collected nothing, three months of trend line that is mostly fabricated. The UI
+ * reads these rather than hardcoding the intended shape, so it degrades into telling
+ * the truth instead of into being wrong.
+ */
+export interface DatasetShape {
+  /** Run days present in the window. */
+  runDays: number;
+  /** How many days `delta7` actually averaged over — 7 at most, fewer if that is all there is. */
+  deltaWindowDays: number;
+  /** Providers with at least one scored answer in the window, fabricated included — this drives the filter tabs. */
+  providersWithData: ProviderId[];
+  /**
+   * Providers that actually returned a real answer. Distinct from the above because a
+   * provider can be present entirely through synthetic rows, and crediting it with
+   * collection it never performed is precisely the false claim this type exists to stop.
+   */
+  providersWithRealData: ProviderId[];
+  /** Days whose runs were collected from real providers. */
+  realDays: number;
+  /** Days that are fabricated (`trigger = 'synthetic'`) and must never be read as measurement. */
+  syntheticDays: number;
+  /** Earliest date collected live rather than backfilled or fabricated. */
+  firstLiveDate: string | null;
+}
+
 export interface OverviewResponse {
   series: SeriesPoint[];
   scoreboard: ScoreboardRow[];
   coverage: CoveragePoint[];
+  dataset: DatasetShape;
   /** Headline numbers for the self brand, for the stat cards. */
   self: {
     brand: string;
@@ -168,6 +199,25 @@ export interface OverviewResponse {
     sentiment: number;
     coverageToday: { ok: number; total: number };
   } | null;
+}
+
+export interface RunProviderCounts {
+  provider: ProviderId;
+  ok: number;
+  failed: number;
+  total: number;
+}
+
+/**
+ * A run plus its real per-provider split.
+ *
+ * The split exists because the Runs page previously approximated it — dividing
+ * `total_calls` evenly across providers and charging every failure to the last one.
+ * That invented per-provider numbers on a page whose entire purpose is to report what
+ * actually happened, so it is read from the answers table instead.
+ */
+export interface RunRow extends Run {
+  byProvider: RunProviderCounts[];
 }
 
 export interface PromptRow {

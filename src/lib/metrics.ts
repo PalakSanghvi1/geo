@@ -16,9 +16,11 @@
  */
 import { all, get, parseJson } from './db';
 import { ALERT_THRESHOLD_PTS, NEW_COMPETITOR_MIN_ANSWERS, SEED_BRANDS } from './config';
+import { deltaWindowPhrase } from './labels';
 import type {
   Citation,
   CoveragePoint,
+  DatasetShape,
   OverviewResponse,
   ProviderId,
   ScoreboardRow,
@@ -196,6 +198,7 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
     series,
     scoreboard,
     coverage,
+    dataset: describeDataset(dates, priorWindow.length, provider),
     self: selfRow
       ? {
           brand: selfRow.brand,
@@ -209,6 +212,93 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
           },
         }
       : null,
+  };
+}
+
+/**
+ * Describe the dataset so the UI can state what it has.
+ *
+ * Provenance is read from `runs.trigger`: 'synthetic' rows are fabricated, everything
+ * else came from a provider. A date counts as synthetic only if it has NO real run, so
+ * a real run landing on a fabricated date reclassifies that day as real — which is
+ * exactly what should happen as genuine collection replaces filler.
+ */
+function describeDataset(
+  dates: string[],
+  deltaWindowDays: number,
+  provider: ProviderFilter
+): DatasetShape {
+  if (dates.length === 0) {
+    return {
+      runDays: 0,
+      deltaWindowDays: 0,
+      providersWithData: [],
+      providersWithRealData: [],
+      realDays: 0,
+      syntheticDays: 0,
+      firstLiveDate: null,
+    };
+  }
+
+  const placeholders = dates.map(() => '?').join(',');
+
+  // realDays is counted from ANSWERS, not runs, and honours the provider filter.
+  // Counting runs would describe a dataset the chart is not showing: with Gemini
+  // selected, every plotted point is fabricated, yet a run-based count would still
+  // report the two days Claude and GPT collected. The caption must describe the
+  // series actually on screen.
+  const realParams: unknown[] = [...dates];
+  const realClause = providerClause(provider, realParams);
+  const realDays = all<{ run_date: string }>(
+    `SELECT DISTINCT r.run_date AS run_date
+       FROM answers a JOIN runs r ON r.id = a.run_id
+      WHERE a.status = 'ok' AND r.trigger != 'synthetic'
+        AND r.run_date IN (${placeholders})${realClause}`,
+    realParams
+  ).length;
+
+  // Tabs are built from this, so it deliberately ignores the current filter —
+  // otherwise selecting one provider would collapse the tab row to that provider.
+  const providersWithData = all<{ provider: string }>(
+    `SELECT DISTINCT a.provider AS provider
+       FROM answers a JOIN runs r ON r.id = a.run_id
+      WHERE a.status = 'ok' AND r.run_date IN (${placeholders})`,
+    dates
+  ).map((r) => r.provider as ProviderId);
+
+  const realProviderParams: unknown[] = [...dates];
+  const realProviderClause = providerClause(provider, realProviderParams);
+  const providersWithRealData = all<{ provider: string }>(
+    `SELECT DISTINCT a.provider AS provider
+       FROM answers a JOIN runs r ON r.id = a.run_id
+      WHERE a.status = 'ok' AND r.trigger != 'synthetic'
+        AND r.run_date IN (${placeholders})${realProviderClause}`,
+    realProviderParams
+  ).map((r) => r.provider as ProviderId);
+
+  // Pin the order. DISTINCT returns rows in whatever order the planner produces, and a
+  // caption that says "GPT and Claude" on one render and "Claude and GPT" on the next
+  // looks like the data moved when only the query plan did.
+  const ORDER: ProviderId[] = ['anthropic', 'openai', 'gemini'];
+  const byCanonical = (a: ProviderId, b: ProviderId) => ORDER.indexOf(a) - ORDER.indexOf(b);
+  providersWithData.sort(byCanonical);
+  providersWithRealData.sort(byCanonical);
+
+  // 'scheduled' and 'manual' are collected live; 'backfill' is real but date-assigned.
+  const live = get<{ run_date: string }>(
+    `SELECT MIN(run_date) AS run_date FROM runs
+      WHERE run_date IN (${placeholders}) AND trigger IN ('scheduled', 'manual')`,
+    dates
+  );
+
+  return {
+    runDays: dates.length,
+    deltaWindowDays,
+    providersWithData,
+    providersWithRealData,
+    realDays,
+    syntheticDays: dates.length - realDays,
+    firstLiveDate: live?.run_date ?? null,
   };
 }
 
@@ -312,7 +402,9 @@ export function getSignals(days = 14): DigestSignal[] {
     const dir = self.delta7 > 0 ? 'up' : 'down';
     signals.push({
       kind: 'delta',
-      text: `${self.brand} visibility is ${dir} ${Math.abs(self.delta7).toFixed(1)} pts vs the 7-day average (now ${self.visibility.toFixed(1)}%).`,
+      text:
+        `${self.brand} visibility is ${dir} ${Math.abs(self.delta7).toFixed(1)} pts ` +
+        `${deltaWindowPhrase(overview.dataset.deltaWindowDays)} (now ${self.visibility.toFixed(1)}%).`,
     });
   }
 
