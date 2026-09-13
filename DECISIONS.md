@@ -90,3 +90,38 @@ Append, don't rewrite. One line each, newest at the bottom.
   the shape. The card shows rank instead ("#3 of 10 tracked brands"). *Dev A: adding
   `avgPositionPrev7` to `self` would let us restore the mockup line — small change,
   your call.*
+
+## Phase B2 — Dev B
+
+- **Answer highlighting is presentation only.** Brand names in the answer body are marked
+  with a plain string match over `SEED_BRANDS` names + aliases (longest first, so
+  "Weights & Biases Weave" beats a bare "Weave"). The authoritative mention list — order,
+  sentiment, quote — still comes from the extractor via `/api/answers/:id`. If the two
+  ever disagree, the sidebar is right and the highlight is cosmetic.
+- **Citations are grouped by domain** with a `×N` count, and Dev A's new `Citation.cited`
+  flag renders as a muted "retrieved" tag — the "cited vs merely retrieved" distinction is
+  a real part of the sources story and was free once the field existed.
+- **Added an "Untracked brands spotted" card** to the answer rail from
+  `answers.other_brands`. Not in `answer-detail.png`, but the field exists precisely for
+  the "new competitor spotted" signal, and it makes that visible per answer.
+- **Omitted "View retry log →" from `runs.png`.** There is no route or endpoint behind it;
+  a dead link on the screen judges look at is worse than its absence. Trivial to add once
+  something can answer it.
+- **Prompts are grouped structurally, not visually.** Each base query and its variations
+  render as their own `<tbody>`, and the tag filter operates on groups — so no filter or
+  sort can orphan a variation from its parent.
+- **A run with zero collected answers reports "no data", not "healthy".** Green on an
+  empty set is a claim we cannot support, and reliability is 25% of the rubric.
+- **Verified against an empty database**, which is what the VPS looks like before the
+  backfill lands: `/api/overview` returns `self: null`, `/api/prompts` and `/api/runs`
+  return `[]`, `/api/answers/1` 404s. Every screen renders its empty state; nothing throws.
+
+### Asks for Dev A (contract, not blocking)
+
+- **`Run` has no per-provider breakdown.** The three provider health cards on the Runs page
+  are therefore an approximation: `total_calls / 3` each, with `failed_calls` charged to one
+  provider. A `by_provider: Record<ProviderId, { ok, total, failed }>` on `Run` would make
+  that row honest — it is the most visible reliability surface in the demo.
+- **`PromptRow.latestAnswerIds` can't distinguish "not run yet" from "ran and failed"** —
+  both are an empty map, so the Prompts table renders the same dash for both.
+- Still open from B1: `avgPositionPrev7` on `OverviewResponse.self`.

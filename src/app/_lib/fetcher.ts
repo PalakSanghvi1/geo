@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { mockOverview, mockRuns } from '@/lib/mock';
-import type { OverviewResponse, Run } from '@/lib/types';
+import { mockAnswerDetail, mockOverview, mockPrompts, mockRuns } from '@/lib/mock';
+import type { AnswerDetailResponse, OverviewResponse, PromptRow, Run } from '@/lib/types';
 
 /**
  * Mirrors `basePath` in next.config.ts. Browser fetches are not rewritten by
@@ -29,6 +29,17 @@ export interface AsyncState<T> {
   /** True only until the first response for the current key. Polling stays quiet. */
   loading: boolean;
   refresh: () => void;
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${API_BASE}${path}`);
+  return (await res.json()) as T;
 }
 
 async function getJson<T>(path: string): Promise<T> {
@@ -99,4 +110,30 @@ export function useRuns(pollMs = 0): AsyncState<Run[]> {
     () => (USE_MOCK ? Promise.resolve(mockRuns()) : getJson<Run[]>('/runs')),
     pollMs
   );
+}
+
+export function usePrompts(): AsyncState<PromptRow[]> {
+  return useResource('prompts', () =>
+    USE_MOCK ? Promise.resolve(mockPrompts()) : getJson<PromptRow[]>('/prompts')
+  );
+}
+
+export function useAnswerDetail(answerId: number): AsyncState<AnswerDetailResponse> {
+  return useResource(`answer:${answerId}`, () =>
+    USE_MOCK
+      ? Promise.resolve(mockAnswerDetail(answerId))
+      : getJson<AnswerDetailResponse>(`/answers/${answerId}`)
+  );
+}
+
+/**
+ * Queues a run. Everything that starts work — cron, Slack, this button — goes
+ * through `run_requests`, so the worker has one code path to poll.
+ */
+export async function triggerRun(note: string): Promise<void> {
+  if (USE_MOCK) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return;
+  }
+  await postJson('/trigger', { note });
 }

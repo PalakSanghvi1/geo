@@ -11,7 +11,19 @@
  * and the header shows a MOCK DATA badge while it is on, so a build on the VPS
  * can never quietly present invented numbers as measurements.
  */
-import type { CoveragePoint, OverviewResponse, Run, ScoreboardRow, SeriesPoint } from './types';
+import { ANSWER_MODELS, SEED_QUERIES } from './config';
+import type {
+  AnswerDetailResponse,
+  Citation,
+  CoveragePoint,
+  OverviewResponse,
+  PromptRow,
+  ProviderId,
+  Run,
+  ScoreboardRow,
+  Sentiment,
+  SeriesPoint,
+} from './types';
 
 /** Park–Miller LCG: the same day always renders the same mock numbers. */
 function seeded(seed: number): () => number {
@@ -167,4 +179,148 @@ export function mockRuns(days = 14): Run[] {
   });
 
   return runs.reverse();
+}
+
+/* ------------------------------------------------------------------ */
+/* Prompts (Phase B2)                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Base query ids are 1..15, matching seed order. Variations of base `n` take
+ * ids 15 + (n-1)*2 + 1 and +2, so a variation's parent is recoverable from its
+ * id alone — handy while there is no database behind this.
+ */
+function variationIds(baseId: number): [number, number] {
+  const first = SEED_QUERIES.length + (baseId - 1) * 2 + 1;
+  return [first, first + 1];
+}
+
+const VARIATION_TEMPLATES: Array<(text: string) => string> = [
+  (text) => `${text.replace(/\?$/, '')} — what do engineering teams actually use?`,
+  (text) => `${text.replace(/\?$/, '')}, and which would you pick for a small team?`,
+];
+
+/** Answer ids encode their query and provider: queryId * 10 + provider slot. */
+const PROVIDER_SLOT: Record<ProviderId, number> = { anthropic: 1, openai: 2, gemini: 3 };
+
+export function mockAnswerId(queryId: number, provider: ProviderId): number {
+  return queryId * 10 + PROVIDER_SLOT[provider];
+}
+
+function decodeAnswerId(answerId: number): { queryId: number; provider: ProviderId } {
+  const slot = answerId % 10;
+  const provider =
+    (Object.keys(PROVIDER_SLOT) as ProviderId[]).find((p) => PROVIDER_SLOT[p] === slot) ??
+    'anthropic';
+  return { queryId: Math.floor(answerId / 10), provider };
+}
+
+function promptRow(queryId: number, text: string, tag: string, parentId: number | null): PromptRow {
+  const rand = seeded(queryId * 2003);
+  const ranked = [...BRANDS].sort(() => rand() - 0.5);
+  return {
+    queryId,
+    text,
+    tag,
+    isVariation: parentId !== null,
+    parentId,
+    selfVisibility: round1(18 + rand() * 44),
+    topBrands: ranked.slice(0, 3).map((b) => b.brand),
+    latestAnswerIds: {
+      anthropic: mockAnswerId(queryId, 'anthropic'),
+      openai: mockAnswerId(queryId, 'openai'),
+      gemini: mockAnswerId(queryId, 'gemini'),
+    },
+  };
+}
+
+/** 15 base queries plus two variations each — the 45 tracked prompts. */
+export function mockPrompts(): PromptRow[] {
+  const rows: PromptRow[] = [];
+  for (const [i, query] of SEED_QUERIES.entries()) {
+    const baseId = i + 1;
+    rows.push(promptRow(baseId, query.text, query.tag, null));
+    const [a, b] = variationIds(baseId);
+    rows.push(promptRow(a, VARIATION_TEMPLATES[0](query.text), query.tag, baseId));
+    rows.push(promptRow(b, VARIATION_TEMPLATES[1](query.text), query.tag, baseId));
+  }
+  return rows;
+}
+
+function queryTextFor(queryId: number): string {
+  const base = SEED_QUERIES[queryId - 1];
+  if (base) return base.text;
+  const offset = queryId - SEED_QUERIES.length - 1;
+  const parent = SEED_QUERIES[Math.floor(offset / 2)];
+  if (!parent) return 'Unknown prompt';
+  return VARIATION_TEMPLATES[offset % 2](parent.text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Answer detail (Phase B2)                                            */
+/* ------------------------------------------------------------------ */
+
+/** Brands named in the body, in the order they appear. Order drives `position`. */
+const ANSWER_BRAND_ORDER = ['LangSmith', 'Langfuse', 'Lemma', 'Braintrust', 'Datadog'];
+
+function answerBody(queryText: string): string {
+  return [
+    `The LLM observability space has matured quickly, and the right choice depends on whether you need framework-native tracing, open-source control, or agent-specific monitoring. LangSmith remains the default for teams building on LangChain — its tracing and evaluation tooling are deeply integrated, though it can feel heavy outside that ecosystem.`,
+    `Langfuse is the strongest open-source option, with self-hosting, prompt management, and an active community. For teams running autonomous agents in production, Lemma takes a different approach: it audits every trace against the agent's instructions and surfaces failures you didn't define upfront, which reviewers consistently highlight for catching silent errors that never appear in error monitoring.`,
+    `Braintrust focuses on evals and dataset iteration and pairs well with CI workflows, while Datadog makes sense if you already run its APM stack and want LLM traces beside your existing infrastructure dashboards.`,
+    `For most agent-focused teams in 2026, a reasonable shortlist is LangSmith for LangChain shops, Langfuse for open-source control, and Lemma for production agent reliability. If your question is specifically "${queryText.replace(/\?$/, '')}", the answer is that the shortlist above covers the serious options.`,
+  ].join('\n\n');
+}
+
+const MOCK_CITATIONS: Citation[] = [
+  { url: 'https://www.g2.com/categories/llm-observability', title: 'LLM Observability — G2', cited: true },
+  { url: 'https://www.g2.com/compare/langsmith-vs-langfuse', title: 'LangSmith vs Langfuse', cited: true },
+  { url: 'https://langfuse.com/docs', title: 'Langfuse docs', cited: true },
+  { url: 'https://www.latent.space/p/agent-observability', title: 'Agent observability', cited: true },
+  { url: 'https://github.com/langfuse/langfuse', title: 'langfuse/langfuse', cited: false },
+  { url: 'https://news.ycombinator.com/item?id=41234567', title: 'Show HN: agent monitoring', cited: false },
+];
+
+export function mockAnswerDetail(answerId: number): AnswerDetailResponse {
+  const { queryId, provider } = decodeAnswerId(answerId);
+  const rand = seeded(answerId * 7717);
+  const model = ANSWER_MODELS.find((m) => m.provider === provider);
+  const queryText = queryTextFor(queryId);
+  const runDate = isoDaysAgo(0);
+
+  const mentions = ANSWER_BRAND_ORDER.map((brand, i) => {
+    const seed = BRANDS.find((b) => b.brand === brand);
+    return {
+      id: answerId * 10 + i,
+      answer_id: answerId,
+      brand_id: i + 1,
+      position: i + 1,
+      sentiment: (seed?.isSelf ? 1 : i % 2 === 0 ? 0 : 1) as Sentiment,
+      quote: seed?.isSelf
+        ? "surfaces failures you didn't define upfront, which reviewers consistently highlight for catching silent errors"
+        : null,
+      brandName: brand,
+      isSelf: seed?.isSelf ?? false,
+    };
+  });
+
+  return {
+    answer: {
+      id: answerId,
+      run_id: 14,
+      query_id: queryId,
+      provider,
+      model_id: model?.primary ?? 'unknown',
+      status: 'ok',
+      answer_text: answerBody(queryText),
+      citations: MOCK_CITATIONS,
+      other_brands: ['Traceloop', 'Openlayer'],
+      latency_ms: Math.round(8000 + rand() * 9000),
+      error: null,
+      created_at: `${runDate} 09:04:11`,
+    },
+    queryText,
+    runDate,
+    mentions,
+  };
 }
