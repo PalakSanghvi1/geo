@@ -1,0 +1,2 @@
+# geo
+Generative Engine Optimization
