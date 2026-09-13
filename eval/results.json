@@ -1,0 +1,1287 @@
+{
+  "generated_at": "2026-09-13T19:33:43.125Z",
+  "evalset": "eval/evalset.json",
+  "extraction_model": "claude-haiku-4-5-20251001",
+  "target": 0.9,
+  "aggregate": {
+    "answers_labelled": 20,
+    "answers_scored": 20,
+    "extraction_failures": 0,
+    "invalid_labels": 0,
+    "true_positives": 59,
+    "false_positives": 3,
+    "false_negatives": 6,
+    "mention_precision": 0.9516129032258065,
+    "mention_recall": 0.9076923076923077,
+    "mention_f1": 0.9291338582677167,
+    "position_accuracy": 0.7796610169491526,
+    "sentiment_agreement": 0.711864406779661,
+    "passed": true
+  },
+  "unknown_label_brands": [],
+  "per_answer": [
+    {
+      "answer_id": 2,
+      "provider": "anthropic",
+      "query_text": "What’s the easiest way to add tracing to an AI agent?",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Helicone",
+        "Datadog"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Helicone"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [
+        "Datadog"
+      ],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Helicone",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenAI",
+        "LangChain",
+        "LangGraph",
+        "Jaeger"
+      ]
+    },
+    {
+      "answer_id": 1,
+      "provider": "openai",
+      "query_text": "What’s the easiest way to add tracing to an AI agent?",
+      "status": "scored",
+      "expected_brands": [],
+      "predicted_brands": [],
+      "true_positives": [],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [],
+      "other_brands_predicted": []
+    },
+    {
+      "answer_id": 7,
+      "provider": "anthropic",
+      "query_text": "Best LLM observability platforms in 2026",
+      "status": "scored",
+      "expected_brands": [
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Helicone",
+        "Datadog"
+      ],
+      "predicted_brands": [
+        "Langfuse",
+        "Arize",
+        "Helicone",
+        "Braintrust",
+        "Datadog",
+        "Weights & Biases Weave"
+      ],
+      "true_positives": [
+        {
+          "brand": "Langfuse",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 4,
+          "predicted_position": 3,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 5,
+          "predicted_position": 5,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [
+        "Weights & Biases Weave"
+      ],
+      "false_negatives": [],
+      "position_mismatches": [
+        {
+          "brand": "Braintrust",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 4,
+          "predicted_position": 3,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 0
+        }
+      ],
+      "sentiment_mismatches": [
+        {
+          "brand": "Braintrust",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 4,
+          "predicted_position": 3,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 0
+        }
+      ],
+      "other_brands_expected": [
+        "Opik",
+        "Comet",
+        "OpenObserve",
+        "MLflow",
+        "Confident AI",
+        "DeepEval",
+        "SigNoz",
+        "TrueFoundry"
+      ],
+      "other_brands_predicted": [
+        "Opik",
+        "Comet",
+        "OpenObserve",
+        "MLflow",
+        "Confident AI",
+        "DeepEval",
+        "SigNoz",
+        "TrueFoundry",
+        "Mintlify",
+        "Gartner",
+        "LangChain"
+      ]
+    },
+    {
+      "answer_id": 10,
+      "provider": "openai",
+      "query_text": "What are the best production monitoring tools for AI agents?",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Datadog"
+      ],
+      "predicted_brands": [],
+      "true_positives": [],
+      "false_positives": [],
+      "false_negatives": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Datadog"
+      ],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [
+        "Opik"
+      ],
+      "other_brands_predicted": [
+        "LangChain",
+        "LangGraph",
+        "Opik",
+        "OpenTelemetry",
+        "OpenInference",
+        "OTLP"
+      ]
+    },
+    {
+      "answer_id": 22,
+      "provider": "anthropic",
+      "query_text": "Alternatives to LangSmith for agent monitoring",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Helicone",
+        "Braintrust",
+        "Galileo",
+        "Datadog"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Helicone",
+        "Braintrust",
+        "Galileo",
+        "Datadog"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 4,
+          "predicted_position": 4,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 5,
+          "predicted_position": 5,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Galileo",
+          "expected_position": 6,
+          "predicted_position": 6,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 7,
+          "predicted_position": 7,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Galileo",
+          "expected_position": 6,
+          "predicted_position": 6,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 0
+        }
+      ],
+      "other_brands_expected": [
+        "Laminar",
+        "Agenta",
+        "OpenLLMetry",
+        "Confident AI",
+        "DeepEval",
+        "LangWatch",
+        "Latitude",
+        "HoneyHive",
+        "Fiddler AI"
+      ],
+      "other_brands_predicted": [
+        "Laminar",
+        "Agenta",
+        "OpenLLMetry",
+        "Confident AI",
+        "DeepEval",
+        "LangWatch",
+        "Latitude",
+        "HoneyHive",
+        "Fiddler AI"
+      ]
+    },
+    {
+      "answer_id": 17,
+      "provider": "openai",
+      "query_text": "What is Lemma and how does it monitor AI agents?",
+      "status": "scored",
+      "expected_brands": [
+        "Lemma"
+      ],
+      "predicted_brands": [
+        "Lemma"
+      ],
+      "true_positives": [
+        {
+          "brand": "Lemma",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Lemma",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": []
+    },
+    {
+      "answer_id": 29,
+      "provider": "anthropic",
+      "query_text": "How do I monitor AI agents that are already deployed in production?",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Arize",
+        "Langfuse",
+        "Braintrust",
+        "Galileo",
+        "Helicone",
+        "Datadog"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Arize",
+        "Langfuse",
+        "Braintrust",
+        "Galileo",
+        "Helicone",
+        "Datadog"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 4,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Galileo",
+          "expected_position": 5,
+          "predicted_position": 5,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 6,
+          "predicted_position": 6,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 7,
+          "predicted_position": 7,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [
+        "MLflow",
+        "Fiddler",
+        "Opik",
+        "Comet"
+      ],
+      "other_brands_predicted": [
+        "MLflow",
+        "Fiddler",
+        "Opik",
+        "Comet"
+      ]
+    },
+    {
+      "answer_id": 25,
+      "provider": "openai",
+      "query_text": "Lemma vs LangSmith for production agent monitoring",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Lemma",
+        "Langfuse",
+        "Arize"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Lemma",
+        "Langfuse",
+        "Arize"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Lemma",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 4,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [],
+      "other_brands_predicted": []
+    },
+    {
+      "answer_id": 43,
+      "provider": "anthropic",
+      "query_text": "What's the best way to track when my AI agent fails in production?",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Weights & Biases Weave",
+        "Braintrust"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Weights & Biases Weave",
+        "Braintrust"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Weights & Biases Weave",
+          "expected_position": 4,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 5,
+          "predicted_position": 5,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Langfuse",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenTelemetry",
+        "PagerDuty",
+        "Slack",
+        "LangChain",
+        "LangGraph"
+      ]
+    },
+    {
+      "answer_id": 34,
+      "provider": "openai",
+      "query_text": "Which tools help identify hidden failures in production AI agents?",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Arize",
+        "Datadog"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Arize",
+        "Datadog"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenTelemetry"
+      ]
+    },
+    {
+      "answer_id": 53,
+      "provider": "anthropic",
+      "query_text": "How do teams evaluate AI agent reliability in production?",
+      "status": "scored",
+      "expected_brands": [],
+      "predicted_brands": [],
+      "true_positives": [],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenTelemetry"
+      ]
+    },
+    {
+      "answer_id": 41,
+      "provider": "openai",
+      "query_text": "I need to set up monitoring to catch my AI agent's issues when it's live.",
+      "status": "scored",
+      "expected_brands": [],
+      "predicted_brands": [],
+      "true_positives": [],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenTelemetry",
+        "NIST"
+      ]
+    },
+    {
+      "answer_id": 63,
+      "provider": "anthropic",
+      "query_text": "Agent monitoring platforms similar to LangSmith",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Datadog",
+        "Galileo"
+      ],
+      "predicted_brands": [
+        "Weights & Biases Weave",
+        "LangSmith",
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Datadog",
+        "Galileo"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 2,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 4,
+          "predicted_position": 5,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 5,
+          "predicted_position": 6,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Galileo",
+          "expected_position": 6,
+          "predicted_position": 7,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [
+        "Weights & Biases Weave"
+      ],
+      "false_negatives": [],
+      "position_mismatches": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Langfuse",
+          "expected_position": 2,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 4,
+          "predicted_position": 5,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Datadog",
+          "expected_position": 5,
+          "predicted_position": 6,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Galileo",
+          "expected_position": 6,
+          "predicted_position": 7,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [
+        "MLflow",
+        "Opik",
+        "Comet",
+        "Fiddler",
+        "Confident AI",
+        "Laminar",
+        "Maxim AI",
+        "Latitude",
+        "Prometheus"
+      ],
+      "other_brands_predicted": [
+        "MLflow",
+        "Opik",
+        "Comet",
+        "Prometheus",
+        "Fiddler",
+        "Confident AI",
+        "Laminar",
+        "Maxim AI",
+        "Latitude",
+        "OpenTelemetry",
+        "LangChain",
+        "LangGraph"
+      ]
+    },
+    {
+      "answer_id": 48,
+      "provider": "openai",
+      "query_text": "What's the simplest method for adding trace logging to an LLM agent?",
+      "status": "scored",
+      "expected_brands": [],
+      "predicted_brands": [],
+      "true_positives": [],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenAI Agents SDK"
+      ]
+    },
+    {
+      "answer_id": 73,
+      "provider": "anthropic",
+      "query_text": "Best observability stack for a YC startup building AI agents",
+      "status": "scored",
+      "expected_brands": [
+        "Langfuse",
+        "LangSmith",
+        "Helicone",
+        "Braintrust",
+        "Arize"
+      ],
+      "predicted_brands": [
+        "Weights & Biases Weave",
+        "Langfuse",
+        "LangSmith",
+        "Helicone",
+        "Braintrust",
+        "Arize"
+      ],
+      "true_positives": [
+        {
+          "brand": "Langfuse",
+          "expected_position": 1,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "LangSmith",
+          "expected_position": 2,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 4,
+          "predicted_position": 5,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 5,
+          "predicted_position": 6,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [
+        "Weights & Biases Weave"
+      ],
+      "false_negatives": [],
+      "position_mismatches": [
+        {
+          "brand": "Langfuse",
+          "expected_position": 1,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "LangSmith",
+          "expected_position": 2,
+          "predicted_position": 3,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 3,
+          "predicted_position": 4,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 4,
+          "predicted_position": 5,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 5,
+          "predicted_position": 6,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [
+        "Confident AI",
+        "OpenLLMetry",
+        "Traceloop"
+      ],
+      "other_brands_predicted": [
+        "Confident AI",
+        "OpenLLMetry",
+        "Traceloop",
+        "LangChain",
+        "LangGraph",
+        "LlamaIndex",
+        "OpenTelemetry"
+      ]
+    },
+    {
+      "answer_id": 56,
+      "provider": "openai",
+      "query_text": "What's the top AI agent monitoring platform with Slack notifications?",
+      "status": "scored",
+      "expected_brands": [
+        "Langfuse",
+        "LangSmith",
+        "Arize"
+      ],
+      "predicted_brands": [
+        "Langfuse",
+        "LangSmith",
+        "Arize"
+      ],
+      "true_positives": [
+        {
+          "brand": "Langfuse",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "LangSmith",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "LangChain",
+        "LangGraph",
+        "OpenTelemetry",
+        "OpenInference"
+      ]
+    },
+    {
+      "answer_id": 82,
+      "provider": "anthropic",
+      "query_text": "How does Lemma work as a monitoring tool for AI agents in production?",
+      "status": "scored",
+      "expected_brands": [
+        "Lemma"
+      ],
+      "predicted_brands": [
+        "Lemma"
+      ],
+      "true_positives": [
+        {
+          "brand": "Lemma",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Lemma",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": []
+    },
+    {
+      "answer_id": 65,
+      "provider": "openai",
+      "query_text": "Tell me about Lemma - what does it do for AI agent monitoring?",
+      "status": "scored",
+      "expected_brands": [
+        "Lemma"
+      ],
+      "predicted_brands": [
+        "Lemma"
+      ],
+      "true_positives": [
+        {
+          "brand": "Lemma",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Lemma",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "OpenAI Agents",
+        "Vercel AI SDK",
+        "LangGraph",
+        "Mastra"
+      ]
+    },
+    {
+      "answer_id": 86,
+      "provider": "anthropic",
+      "query_text": "Lemma or LangSmith—which is better for production agent observability?",
+      "status": "scored",
+      "expected_brands": [
+        "LangSmith",
+        "Braintrust",
+        "Lemma"
+      ],
+      "predicted_brands": [
+        "LangSmith",
+        "Braintrust",
+        "Lemma"
+      ],
+      "true_positives": [
+        {
+          "brand": "LangSmith",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Lemma",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 1
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Lemma",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": -1,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [],
+      "other_brands_predicted": [
+        "LangChain",
+        "LangGraph"
+      ]
+    },
+    {
+      "answer_id": 71,
+      "provider": "openai",
+      "query_text": "observability stack recommendations for early-stage AI agent companies",
+      "status": "scored",
+      "expected_brands": [
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Helicone",
+        "LangSmith"
+      ],
+      "predicted_brands": [
+        "Langfuse",
+        "Arize",
+        "Braintrust",
+        "Helicone",
+        "LangSmith"
+      ],
+      "true_positives": [
+        {
+          "brand": "Langfuse",
+          "expected_position": 1,
+          "predicted_position": 1,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        },
+        {
+          "brand": "Helicone",
+          "expected_position": 4,
+          "predicted_position": 4,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "LangSmith",
+          "expected_position": 5,
+          "predicted_position": 5,
+          "expected_sentiment": -1,
+          "predicted_sentiment": -1
+        }
+      ],
+      "false_positives": [],
+      "false_negatives": [],
+      "position_mismatches": [],
+      "sentiment_mismatches": [
+        {
+          "brand": "Arize",
+          "expected_position": 2,
+          "predicted_position": 2,
+          "expected_sentiment": 1,
+          "predicted_sentiment": 0
+        },
+        {
+          "brand": "Braintrust",
+          "expected_position": 3,
+          "predicted_position": 3,
+          "expected_sentiment": 0,
+          "predicted_sentiment": 1
+        }
+      ],
+      "other_brands_expected": [
+        "Sentry"
+      ],
+      "other_brands_predicted": [
+        "Sentry",
+        "PostHog",
+        "Amplitude",
+        "BigQuery",
+        "Snowflake",
+        "ClickHouse",
+        "Postgres",
+        "OpenTelemetry"
+      ]
+    }
+  ]
+}
