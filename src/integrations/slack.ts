@@ -13,11 +13,17 @@
  * the Notion report must never compute visibility independently.
  */
 import { App, LogLevel } from '@slack/bolt';
-import type { KnownBlock } from '@slack/types';
+// Bolt re-exports the Block Kit types (`export * as types from '@slack/types'`),
+// so we take them from the declared dependency rather than reaching into
+// @slack/types, which is only present as a hoisted transitive install.
+import type { types as slackTypes } from '@slack/bolt';
 import { PROJECT, PUBLIC_BASE_URL } from '../lib/config';
 import { get, run } from '../lib/db';
 import { getOverview, getSignals, recentDates } from '../lib/metrics';
+import type { ScoreboardRow } from '../lib/types';
 import { log, logError } from '../worker/log';
+
+type KnownBlock = slackTypes.KnownBlock;
 
 /**
  * The parts of the runner's `RunSummary` the digest uses. Declared structurally
@@ -109,62 +115,6 @@ interface RunRow {
   failed_calls: number;
 }
 
-/**
- * Compact completion summary. Run completions now post the full digest (see
- * notifyRunComplete); this stays available for anywhere a short body is wanted.
- */
-export function buildRunCompleteBlocks(runId: number, requestedBy: string): KnownBlock[] {
-  const row = get<RunRow>(
-    `SELECT id, run_date, status, total_calls, ok_calls, failed_calls FROM runs WHERE id = ?`,
-    [runId]
-  );
-  const overview = getOverview(14, 'all');
-  const self = overview.self;
-
-  const lines: string[] = [];
-  if (self) {
-    lines.push(
-      `*${self.brand}* visibility *${pct(self.visibility)}*  (${signed(self.delta7)} vs 7-day average)`
-    );
-    const movers = overview.scoreboard
-      .filter((r) => !r.isSelf)
-      .sort((a, b) => Math.abs(b.delta7) - Math.abs(a.delta7));
-    const mover = movers[0];
-    if (mover && Math.abs(mover.delta7) >= 0.1) {
-      lines.push(`Biggest mover: *${mover.brand}* ${signed(mover.delta7)} → ${pct(mover.visibility)}`);
-    }
-  } else {
-    lines.push('Run finished, but there are no scored answers yet.');
-  }
-  if (row) {
-    const coverage =
-      row.total_calls > 0
-        ? `${row.ok_calls}/${row.total_calls} answers collected${row.failed_calls ? ` · ${row.failed_calls} failed` : ''}`
-        : 'no answer calls recorded';
-    lines.push(`Coverage: ${coverage} · status \`${row.status}\``);
-  }
-
-  return [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: `Run #${runId} complete`, emoji: true },
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: lines.join('\n') },
-    },
-    {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `Requested by ${requestedBy} · <${PUBLIC_BASE_URL}/runs|Open the runs page>`,
-        },
-      ],
-    },
-  ];
-}
-
 /* ------------------------------------------------------------------ */
 /* Daily digest (Phase C2)                                             */
 /* ------------------------------------------------------------------ */
@@ -200,6 +150,25 @@ function coverageLine(ok: number, total: number): string {
   const pctOk = Math.round((ok / total) * 100);
   const shortfall = ok >= total ? '' : ` (${pctOk}% coverage — ${total - ok} call(s) failed)`;
   return `${ok}/${total} answers collected${shortfall} ${emoji}`;
+}
+
+/** Moves smaller than this are noise, not news. */
+const MOVER_MIN_PTS = 0.1;
+
+/**
+ * The brand whose 7-day move is largest in absolute terms — BUILD_PLAN §8 C1.2's
+ * "biggest mover". The self brand is excluded on purpose: its move is already the
+ * digest headline, so reporting it here would just repeat the same number.
+ * Returns null when there is nothing worth saying (no competitors scored yet, or
+ * every delta is negligible), and callers then omit the line entirely.
+ */
+function biggestMover(scoreboard: ScoreboardRow[]): ScoreboardRow | null {
+  let best: ScoreboardRow | null = null;
+  for (const row of scoreboard) {
+    if (row.isSelf) continue;
+    if (best === null || Math.abs(row.delta7) > Math.abs(best.delta7)) best = row;
+  }
+  return best && Math.abs(best.delta7) >= MOVER_MIN_PTS ? best : null;
 }
 
 function section(text: string): KnownBlock {
@@ -254,17 +223,21 @@ function buildDigestBlocks(date?: string): KnownBlock[] {
     )
   );
 
-  // 3. Top 3 competitors, one line.
+  // 3. Top 3 competitors plus the biggest mover (BUILD_PLAN §8 C1.2), one block.
   const competitors = overview.scoreboard.filter((r) => !r.isSelf).slice(0, 3);
-  blocks.push(
-    section(
-      competitors.length > 0
-        ? `*Top competitors:* ${competitors
+  const lines =
+    competitors.length > 0
+      ? [
+          `*Top competitors:* ${competitors
             .map((c) => `${c.brand} ${pct(c.visibility)} (${signed(c.delta7)})`)
-            .join(' · ')}`
-        : '*Top competitors:* none mentioned yet.'
-    )
-  );
+            .join(' · ')}`,
+        ]
+      : ['*Top competitors:* none mentioned yet.'];
+  const mover = biggestMover(overview.scoreboard);
+  if (mover) {
+    lines.push(`*Biggest mover:* ${mover.brand} ${signed(mover.delta7)} → ${pct(mover.visibility)}`);
+  }
+  blocks.push(section(lines.join('\n')));
 
   // 4. Coverage.
   const coverage =
@@ -353,7 +326,9 @@ export async function postDigest(date?: string): Promise<boolean> {
 
 /**
  * A completed run posts the full digest plus a one-line context footer naming
- * the run and whoever asked for it.
+ * the run and whoever asked for it. The digest itself carries everything
+ * BUILD_PLAN §8 C1.2 asks for on completion — visibility vs the 7-day average,
+ * the biggest mover and the dashboard link — so there is no second body here.
  */
 export async function notifyRunComplete(
   runId: number,
