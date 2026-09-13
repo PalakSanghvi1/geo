@@ -14,11 +14,15 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
+import { AUTH_ENABLED } from '@/lib/session';
 
 /** Paths a signed-out visitor may reach. Everything else redirects to login. */
 const PUBLIC_PREFIXES = ['/login', '/api/auth'];
 
 export function proxy(request: NextRequest) {
+  // Nothing is gated until sign-in is switched on for this deployment.
+  if (!AUTH_ENABLED) return NextResponse.next();
+
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
