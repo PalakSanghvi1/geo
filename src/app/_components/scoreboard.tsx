@@ -92,10 +92,10 @@ export function Scoreboard({
   if (loading) {
     return (
       <Card>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm">
           <HeaderRow deltaWindowDays={deltaWindowDays} />
           <ScoreboardSkeleton />
-        </table>
+        </table></div>
       </Card>
     );
   }
@@ -113,7 +113,7 @@ export function Scoreboard({
 
   return (
     <Card>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm">
         <caption className="sr-only">
           Competitor scoreboard, ranked by share of answers mentioning each brand
         </caption>
@@ -160,7 +160,7 @@ export function Scoreboard({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {rows.length > COLLAPSED ? (
         <button
           type="button"

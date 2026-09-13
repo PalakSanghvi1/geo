@@ -75,7 +75,7 @@ export default function OverviewPage() {
         <RangeSelect label="Date range" value={days} options={RANGES} onChange={setDays} />
       </PageHeader>
 
-      <div className="flex flex-col gap-4 px-8 pb-12">
+      <div className="flex flex-col gap-4 px-4 pb-12 md:px-8">
         {overview.error && data === null ? (
           <Card>
             <ErrorState message={overview.error} onRetry={overview.refresh} />

@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Sidebar } from './sidebar';
+import { MobileNav } from './mobile-nav';
 
 /**
  * The dashboard chrome, minus the routes that must not show it.
@@ -25,7 +26,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (bare) return <>{children}</>;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <MobileNav />
       <Sidebar />
       <main className="min-w-0 flex-1">{children}</main>
     </div>

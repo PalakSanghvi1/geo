@@ -25,7 +25,7 @@ function Icon({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV = [
+export const NAV = [
   {
     href: '/',
     label: 'Overview',
@@ -69,7 +69,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[212px] shrink-0 flex-col border-r border-hairline">
+    <aside className="sticky top-0 hidden h-screen w-[212px] shrink-0 flex-col border-r border-hairline md:flex">
       <div className="flex items-center gap-2 px-5 py-5">
         <Logo size={18} />
         <span className="font-mono text-[13px] font-semibold tracking-[0.18em]">GEO</span>
