@@ -12,7 +12,7 @@ const COLLAPSED = 6;
 const CELL = 'px-5 py-3';
 const NUM = cx(CELL, 'numeric whitespace-nowrap');
 
-function HeaderRow({ deltaWindowDays }: { deltaWindowDays: number }) {
+function HeaderRow({ deltaLabel }: { deltaLabel: string | null }) {
   return (
     <thead>
       <tr className="border-b border-hairline">
@@ -25,9 +25,13 @@ function HeaderRow({ deltaWindowDays }: { deltaWindowDays: number }) {
         <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Visibility
         </th>
-        <th scope="col" className={cx(CELL, 'field-label text-left')}>
-          {deltaColumnLabel(deltaWindowDays)}
-        </th>
+        {/* Omitted, not dashed out: a column of em-dashes reads as missing data
+            rather than as a comparison we decline to invent. */}
+        {deltaLabel === null ? null : (
+          <th scope="col" className={cx(CELL, 'field-label text-left')}>
+            {deltaLabel}
+          </th>
+        )}
         <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Position
         </th>
@@ -39,7 +43,7 @@ function HeaderRow({ deltaWindowDays }: { deltaWindowDays: number }) {
   );
 }
 
-function ScoreboardSkeleton() {
+function ScoreboardSkeleton({ showDelta }: { showDelta: boolean }) {
   return (
     <tbody>
       {Array.from({ length: COLLAPSED }, (_, i) => (
@@ -59,9 +63,11 @@ function ScoreboardSkeleton() {
               <Skeleton className="h-[3px] w-[148px]" />
             </div>
           </td>
-          <td className={CELL}>
-            <Skeleton className="h-3 w-10" />
-          </td>
+          {showDelta ? (
+            <td className={CELL}>
+              <Skeleton className="h-3 w-10" />
+            </td>
+          ) : null}
           <td className={CELL}>
             <Skeleton className="h-3 w-8" />
           </td>
@@ -76,22 +82,23 @@ function ScoreboardSkeleton() {
 
 export function Scoreboard({
   rows,
-  deltaWindowDays = 0,
+  deltaGapDays = null,
   loading,
 }: {
   rows: ScoreboardRow[];
-  /** How many days `delta7` averaged over; labels the Δ column honestly. */
-  deltaWindowDays?: number;
+  /** Gap the delta spans; null hides the column rather than showing an unsupported one. */
+  deltaGapDays?: number | null;
   loading?: boolean;
 }) {
+  const deltaLabel = deltaColumnLabel(deltaGapDays);
   const [expanded, setExpanded] = useState(false);
 
   if (loading) {
     return (
       <Card>
         <table className="w-full text-sm">
-          <HeaderRow deltaWindowDays={deltaWindowDays} />
-          <ScoreboardSkeleton />
+          <HeaderRow deltaLabel={deltaLabel} />
+          <ScoreboardSkeleton showDelta={deltaLabel !== null} />
         </table>
       </Card>
     );
@@ -114,7 +121,7 @@ export function Scoreboard({
         <caption className="sr-only">
           Competitor scoreboard, ranked by share of answers mentioning each brand
         </caption>
-        <HeaderRow deltaWindowDays={deltaWindowDays} />
+        <HeaderRow deltaLabel={deltaLabel} />
         <tbody>
           {visible.map((row, i) => (
             <tr
@@ -144,9 +151,11 @@ export function Scoreboard({
                   </div>
                 </div>
               </td>
-              <td className={NUM}>
-                <Delta value={row.delta7} />
-              </td>
+              {deltaLabel === null ? null : (
+                <td className={NUM}>
+                  <Delta value={row.delta7} />
+                </td>
+              )}
               <td className={NUM}>
                 {row.avgPosition === null ? '—' : row.avgPosition.toFixed(1)}
               </td>

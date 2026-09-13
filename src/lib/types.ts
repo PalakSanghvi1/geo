@@ -168,14 +168,29 @@ export interface CoveragePoint {
 export interface DatasetShape {
   /** Run days present in the window. */
   runDays: number;
-  /** How many days `delta7` actually averaged over — 7 at most, fewer if that is all there is. */
-  deltaWindowDays: number;
   /**
-   * True when no day in that prior window was measured, so `delta7` is a real day
-   * minus a fabricated baseline. The number is still the defined metric; it just
-   * cannot be read as a change in how the models answer, and the surfaces say so.
+   * The day every headline figure is computed on: the newest MEASURED day in the
+   * window, not the newest day.
+   *
+   * Those differ whenever illustrative filler is more recent than the last real
+   * collection, which is the normal state between runs — and then the headline
+   * visibility, position and sentiment were all read off a generated day. Four days
+   * stale and real beats current and invented, so the date is carried here and shown.
    */
-  deltaBaselineIsIllustrative: boolean;
+  headlineDate: string | null;
+  /** True when `headlineDate` is also the newest day in the window, i.e. nothing newer is filler. */
+  headlineIsCurrent: boolean;
+  /**
+   * The measured day `delta7` compares against, or null when no delta is shown.
+   *
+   * The delta only appears when the headline is current: a change between two stale
+   * days decorates a number the reader has already been told is out of date, and the
+   * gap between measured days is whatever collection happened to manage — never the
+   * seven days the old label claimed.
+   */
+  deltaComparisonDate: string | null;
+  /** Calendar days between `deltaComparisonDate` and `headlineDate`; null when suppressed. */
+  deltaGapDays: number | null;
   /** Providers with at least one scored answer in the window, fabricated included — this drives the filter tabs. */
   providersWithData: ProviderId[];
   /**
@@ -185,16 +200,18 @@ export interface DatasetShape {
    */
   providersWithMeasuredData: ProviderId[];
   /**
-   * Days that were measured: a run whose trigger is `scheduled` or `manual`, meaning
-   * the answers were collected on the date they are filed under. See
-   * `src/lib/provenance.ts` — `backfill` counts as illustrative alongside `synthetic`,
-   * because replaying real answers onto a past date still makes that date's number
-   * something other than an observation of it.
+   * Days backed by a real provider response — see `src/lib/provenance.ts`. `backfill`
+   * counts: the date is simulated, but a model was genuinely asked and its citations
+   * are real retrievals.
    */
   measuredDays: number;
-  /** Days carried by fabricated or date-shifted runs, which must never be read as measurement. */
+  /** Days carried only by invented rows, which must never be read as measurement. */
   illustrativeDays: number;
-  /** Earliest measured date in the window; the chart marks it as the boundary. */
+  /**
+   * Earliest day in the window collected ON the date it carries — `scheduled` or
+   * `manual` only, so backfill is excluded here even though it counts as measured
+   * above. The chart marks it as the boundary of genuine daily collection.
+   */
   firstLiveDate: string | null;
 }
 

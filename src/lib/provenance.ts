@@ -1,26 +1,31 @@
 /**
  * One definition of which runs are measurements.
  *
- * `synthetic` rows are fabricated outright. `backfill` rows hold real provider
- * answers replayed onto dates they were never collected on, and the team's
- * decision is that both leave with the demo: neither is an observation of what
- * the models said on the date it is filed under. Treating them alike is what
- * lets a caption say "2 days measured, 88 illustrative" without qualification.
+ * `synthetic` rows are invented numbers — no provider was called. Everything else
+ * is a real model answer, `backfill` included: those carry a simulated date, but a
+ * model was genuinely asked and genuinely replied, and the citations on a backfilled
+ * answer are real retrievals.
  *
- * Only `scheduled` and `manual` runs happened when they say they happened.
+ * That distinction is deliberate and was argued over. Collapsing backfill into
+ * synthetic zeroes `measuredDays` on the deployed database, which would have the
+ * dashboard declare every number on it fabricated — including 180 real answers and
+ * the whole Sources page. A simulated date is a caveat; an invented number is a
+ * different kind of thing.
  *
- * Every query that distinguishes the two reads from here. When this lived as an
- * inline `trigger != 'synthetic'` in each caller, adding a third fabricated
- * trigger meant finding all of them, and `export-evalset.ts` was for a while the
- * only consumer that filtered at all.
+ * `firstLiveDate` is the separate, narrower question of which days were collected
+ * on the date they carry, and that one does exclude backfill.
+ *
+ * Every query that distinguishes measured from invented reads from here. When this
+ * lived as an inline `trigger != 'synthetic'` in each caller, `export-evalset.ts`
+ * was for a while the only consumer that filtered at all.
  */
 import type { RunTrigger } from './types';
 
-/** Triggers whose rows are not measurements of the date they carry. */
-export const FABRICATED_TRIGGERS: readonly RunTrigger[] = ['synthetic', 'backfill'];
+/** Triggers whose rows are invented rather than collected. */
+export const FABRICATED_TRIGGERS: readonly RunTrigger[] = ['synthetic'];
 
-/** Triggers that collected a live answer on the date they carry. */
-export const MEASURED_TRIGGERS: readonly RunTrigger[] = ['scheduled', 'manual'];
+/** Triggers backed by a real provider response, whatever date they are filed under. */
+export const MEASURED_TRIGGERS: readonly RunTrigger[] = ['scheduled', 'manual', 'backfill'];
 
 export function isFabricated(trigger: RunTrigger): boolean {
   return FABRICATED_TRIGGERS.includes(trigger);

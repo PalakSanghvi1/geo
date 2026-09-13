@@ -19,7 +19,7 @@ import { App, LogLevel } from '@slack/bolt';
 import type { types as slackTypes } from '@slack/bolt';
 import { PROJECT, PUBLIC_BASE_URL } from '../lib/config';
 import { get, run } from '../lib/db';
-import { deltaWindowPhrase } from '../lib/labels';
+import { deltaComparisonPhrase, headlineBasisPhrase } from '../lib/labels';
 import { getOverview, getSignals, recentDates } from '../lib/metrics';
 import { runDateToday } from '../lib/provenance';
 import type { ScoreboardRow } from '../lib/types';
@@ -91,12 +91,14 @@ export function buildStatusLine(): string {
     return 'No runs recorded yet — trigger one with `/geo run`.';
   }
   const rank = overview.scoreboard.findIndex((r) => r.isSelf) + 1;
+  const deltaPhrase = deltaComparisonPhrase(overview.dataset.deltaGapDays);
+  const basis = headlineBasisPhrase(overview.dataset);
   const coverage = self.coverageToday;
   const coverageText =
     coverage.total > 0 ? `${coverage.ok}/${coverage.total} answers collected` : 'no answers today';
   return (
     `*${self.brand}* — visibility ${pct(self.visibility)} ` +
-    `(${signed(self.delta7)} ${deltaWindowPhrase(overview.dataset.deltaWindowDays, overview.dataset.deltaBaselineIsIllustrative)}), ` +
+    `${deltaPhrase ? `(${signed(self.delta7)} ${deltaPhrase})` : `(${basis ?? 'first measured day'})`}, ` +
     `rank ${rank || '—'} of ${overview.scoreboard.length}, ` +
     `avg position ${self.avgPosition === null ? '—' : self.avgPosition.toFixed(1)}, ` +
     `sentiment ${self.sentiment > 0 ? '+' : ''}${self.sentiment}. ${coverageText}.`

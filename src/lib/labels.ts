@@ -15,22 +15,45 @@ export const PROVIDER_LABEL: Record<ProviderId, string> = {
 };
 
 /**
- * "vs the 7-day average", plus a warning when that average is fabricated.
+ * "vs 3 days ago, measured" — the delta's actual basis, never a fixed window.
  *
- * `delta7` subtracts the mean of the prior run days from the latest one. When every
- * one of those prior days is illustrative, the result is a measured number minus an
- * invented baseline: still the defined metric, but not a change in how the models
- * answer, and nothing on screen said so.
+ * `delta7` used to be the latest day minus the mean of the seven before it, printed
+ * as "vs the 7-day average" whatever those days held. It now compares two measured
+ * days, and the gap between them is whatever collection managed, so the label reads
+ * the gap rather than asserting a week.
  */
-export function deltaWindowPhrase(days: number, baselineIsIllustrative = false): string {
-  if (days <= 0) return 'no prior day to compare';
-  const window = days === 1 ? 'vs the previous day' : `vs the ${days}-day average`;
-  return baselineIsIllustrative ? `${window} (illustrative baseline)` : window;
+export function deltaComparisonPhrase(gapDays: number | null): string | null {
+  if (gapDays === null || gapDays <= 0) return null;
+  if (gapDays === 1) return 'vs yesterday, measured';
+  return `vs ${gapDays} days ago, measured`;
 }
 
-/** Compact column header: "Δ 7d". */
-export function deltaColumnLabel(days: number): string {
-  return days <= 0 ? 'Δ' : `Δ ${days}d`;
+/** Compact column header: "Δ 3d", or null when there is no comparison to show. */
+export function deltaColumnLabel(gapDays: number | null): string | null {
+  return gapDays === null || gapDays <= 0 ? null : `Δ ${gapDays}d`;
+}
+
+/**
+ * What the headline figures are read from, when that is not the newest day.
+ *
+ * Silence when it IS the newest day: a date stamp on a current number is noise, and
+ * the point of the stamp is to mark the exception.
+ */
+export function headlineBasisPhrase(dataset: DatasetShape): string | null {
+  const { headlineDate, headlineIsCurrent, measuredDays } = dataset;
+  if (headlineDate === null) {
+    return measuredDays === 0 ? 'no measured day in this window' : null;
+  }
+  if (headlineIsCurrent) return null;
+  return `as of ${formatDay(headlineDate)} — the most recent measured day`;
+}
+
+/** "2026-09-10" → "Sep 10". */
+export function formatDay(iso: string): string {
+  const [, month, day] = iso.split('-').map(Number);
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return iso;
+  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${names[(month ?? 1) - 1]} ${day}`;
 }
 
 /** "Claude, GPT and Gemini" — only the providers that actually returned answers. */

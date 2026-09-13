@@ -60,7 +60,7 @@ export default function OverviewPage() {
    * the old filter (`trigger !== 'backfill'`) counted them as such.
    */
   const liveFrom = dataset?.firstLiveDate ?? undefined;
-  const deltaWindowDays = dataset?.deltaWindowDays ?? baseline.data?.dataset.deltaWindowDays ?? 0;
+  const deltaGapDays = dataset?.deltaGapDays ?? null;
   const filterKey = `${provider}:${days}`;
 
   return (
@@ -100,7 +100,7 @@ export default function OverviewPage() {
             <Scoreboard
               key={`scoreboard:${filterKey}`}
               rows={data?.scoreboard ?? []}
-              deltaWindowDays={deltaWindowDays}
+              deltaGapDays={deltaGapDays}
               loading={overview.loading}
             />
           </>

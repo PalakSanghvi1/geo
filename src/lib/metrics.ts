@@ -16,7 +16,7 @@
  */
 import { all, get, parseJson } from './db';
 import { ALERT_THRESHOLD_PTS, NEW_COMPETITOR_MIN_ANSWERS, SEED_BRANDS } from './config';
-import { deltaWindowPhrase } from './labels';
+import { deltaComparisonPhrase } from './labels';
 import { measuredRunsClause } from './provenance';
 import type {
   Citation,
@@ -142,6 +142,34 @@ function round(n: number, places = 1): number {
   return Math.round(n * f) / f;
 }
 
+/** Whole days between two `YYYY-MM-DD` dates. */
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * Dates in the window backed by a real provider answer, honouring the provider filter.
+ *
+ * Counted from ANSWERS, not runs. A run-based count would describe a dataset the
+ * screen is not showing: with Gemini selected every plotted point is fabricated, yet
+ * the run rows for the days Claude and GPT collected would still be counted.
+ */
+function measuredDatesIn(dates: string[], provider: ProviderFilter): Set<string> {
+  if (dates.length === 0) return new Set();
+  const placeholders = dates.map(() => '?').join(',');
+  const params: unknown[] = [...dates];
+  const clause = providerClause(provider, params);
+  return new Set(
+    all<{ run_date: string }>(
+      `SELECT DISTINCT r.run_date AS run_date
+         FROM answers a JOIN runs r ON r.id = a.run_id
+        WHERE a.status = 'ok' AND ${measuredRunsClause()}
+          AND r.run_date IN (${placeholders})${clause}`,
+      params
+    ).map((r) => r.run_date)
+  );
+}
+
 export function getOverview(days = 14, provider: ProviderFilter = 'all'): OverviewResponse {
   const dates = recentDates(days, provider);
 
@@ -154,13 +182,14 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
       series: [],
       scoreboard: [],
       coverage: [],
-      dataset: describeDataset([], [], provider),
+      dataset: describeDataset([], new Set(), provider),
       self: null,
     };
   }
 
   const totals = dailyTotals(dates, provider);
   const rows = brandDays(dates, provider);
+  const measuredDates = measuredDatesIn(dates, provider);
 
   // Every brand that has ever been mentioned in the window, plus the self brand.
   const brandNames = new Set<string>(rows.map((r) => r.brand));
@@ -184,29 +213,59 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
     }
   }
 
-  const latest = dates[dates.length - 1];
-  const priorWindow = dates.slice(Math.max(0, dates.length - 8), dates.length - 1);
+  /*
+   * Headline basis. Every figure outside the chart — the stat cards, and every
+   * scoreboard column — is computed on ONE day, and that day is the newest
+   * MEASURED day, not the newest day.
+   *
+   * They diverge whenever illustrative filler is more recent than the last real
+   * collection, which is the ordinary state between runs. Reading the newest day
+   * then puts a generated number under the word "Visibility". A date four days
+   * back that a model actually answered is worth more than today's invention, so
+   * the basis shifts and `dataset.headlineDate` carries the date for the UI to show.
+   */
+  const measured = dates.filter((d) => measuredDates.has(d));
+  const headlineDate = measured.at(-1) ?? null;
+  const newestDate = dates[dates.length - 1] ?? null;
+  const headlineIsCurrent = headlineDate !== null && headlineDate === newestDate;
+
+  /*
+   * Delta basis: the measured day before the headline day, and only while the
+   * headline is current.
+   *
+   * Two separate reasons, both fatal on their own. A delta between two stale days
+   * decorates a number the card has already labelled out of date. And the gap
+   * between measured days is whatever collection managed — four days here, three
+   * after the next run — never the seven the old "vs the 7-day average" claimed,
+   * and never a mean over days that were mostly generated.
+   *
+   * Both conditions clear themselves: collect today and the headline is current
+   * again and the delta returns, labelled with the real gap.
+   */
+  const previousMeasured = headlineIsCurrent ? (measured.at(-2) ?? null) : null;
+  const deltaGapDays =
+    previousMeasured && headlineDate ? daysBetween(previousMeasured, headlineDate) : null;
 
   const scoreboard: ScoreboardRow[] = [...brandNames]
     .map((brand) => {
-      const latestRow = latest ? byBrandDate.get(`${brand}|${latest}`) : undefined;
-      const visibility = latest ? round(visibilityOn(brand, latest)) : 0;
-      const priorMean =
-        priorWindow.length > 0
-          ? priorWindow.reduce((sum, d) => sum + visibilityOn(brand, d), 0) / priorWindow.length
-          : visibility;
+      const headlineRow = headlineDate ? byBrandDate.get(`${brand}|${headlineDate}`) : undefined;
+      const visibility = headlineDate ? round(visibilityOn(brand, headlineDate)) : 0;
 
-      // Fall back to the whole window when the latest day has no mention of this brand,
+      // Fall back to the whole window when the headline day has no mention of this brand,
       // so the table still shows a meaningful position/sentiment instead of a dash.
       const windowRows = rows.filter((r) => r.brand === brand);
-      const posSource = latestRow?.avgPosition ?? avg(windowRows.map((r) => r.avgPosition));
-      const sentSource = latestRow?.avgSentiment ?? avg(windowRows.map((r) => r.avgSentiment));
+      const posSource = headlineRow?.avgPosition ?? avg(windowRows.map((r) => r.avgPosition));
+      const sentSource = headlineRow?.avgSentiment ?? avg(windowRows.map((r) => r.avgSentiment));
 
       return {
         brand,
-        isSelf: latestRow?.isSelf ?? windowRows[0]?.isSelf ?? brand === selfBrand?.name,
+        isSelf: headlineRow?.isSelf ?? windowRows[0]?.isSelf ?? brand === selfBrand?.name,
         visibility,
-        delta7: round(visibility - priorMean),
+        // 0 when suppressed; the UI reads `deltaComparisonDate` to know not to render it.
+        delta7:
+          previousMeasured && headlineDate
+            ? round(visibilityOn(brand, headlineDate) - visibilityOn(brand, previousMeasured))
+            : 0,
         avgPosition: posSource === null ? null : round(posSource),
         sentiment: sentSource === null ? 0 : Math.round(sentSource * 100),
       };
@@ -220,13 +279,19 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
   });
 
   const selfRow = scoreboard.find((r) => r.isSelf) ?? null;
-  const todayTotals = latest ? totals.get(latest) : undefined;
+  // Coverage belongs to the day the headline is read from, not to whatever is newest.
+  const headlineTotals = headlineDate ? totals.get(headlineDate) : undefined;
 
   return {
     series,
     scoreboard,
     coverage,
-    dataset: describeDataset(dates, priorWindow, provider),
+    dataset: describeDataset(dates, measuredDates, provider, {
+      headlineDate,
+      headlineIsCurrent,
+      deltaComparisonDate: previousMeasured,
+      deltaGapDays,
+    }),
     self: selfRow
       ? {
           brand: selfRow.brand,
@@ -235,33 +300,45 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
           avgPosition: selfRow.avgPosition,
           sentiment: selfRow.sentiment,
           coverageToday: {
-            ok: todayTotals?.total ?? 0,
-            total: todayTotals?.attempted ?? 0,
+            ok: headlineTotals?.total ?? 0,
+            total: headlineTotals?.attempted ?? 0,
           },
         }
       : null,
   };
 }
 
+/** The day each headline figure is read from, and what the delta compares against. */
+interface HeadlineBasis {
+  headlineDate: string | null;
+  headlineIsCurrent: boolean;
+  deltaComparisonDate: string | null;
+  deltaGapDays: number | null;
+}
+
 /**
  * Describe the dataset so the UI can state what it has.
  *
- * Provenance is read from `runs.trigger` through `src/lib/provenance.ts`: `synthetic`
- * and `backfill` are illustrative, `scheduled` and `manual` are measured. A date counts
- * as illustrative only if it has NO measured run, so a real run landing on a filled date
- * reclassifies that day as measured — which is exactly what should happen as genuine
- * collection replaces filler.
+ * Provenance comes from `runs.trigger` through `src/lib/provenance.ts`: `synthetic`
+ * is invented, everything else is a real answer. A date counts as illustrative only
+ * when it has NO measured run, so a real run landing on a filled date reclassifies
+ * that day — which is exactly what should happen as collection replaces filler.
  */
 function describeDataset(
   dates: string[],
-  priorWindow: string[],
-  provider: ProviderFilter
+  measuredDates: Set<string>,
+  provider: ProviderFilter,
+  basis: HeadlineBasis = {
+    headlineDate: null,
+    headlineIsCurrent: false,
+    deltaComparisonDate: null,
+    deltaGapDays: null,
+  }
 ): DatasetShape {
   if (dates.length === 0) {
     return {
       runDays: 0,
-      deltaWindowDays: 0,
-      deltaBaselineIsIllustrative: false,
+      ...basis,
       providersWithData: [],
       providersWithMeasuredData: [],
       measuredDays: 0,
@@ -271,23 +348,6 @@ function describeDataset(
   }
 
   const placeholders = dates.map(() => '?').join(',');
-
-  // measuredDays is counted from ANSWERS, not runs, and honours the provider filter.
-  // Counting runs would describe a dataset the chart is not showing: with Gemini
-  // selected, every plotted point is fabricated, yet a run-based count would still
-  // report the two days Claude and GPT collected. The caption must describe the
-  // series actually on screen.
-  const realParams: unknown[] = [...dates];
-  const realClause = providerClause(provider, realParams);
-  const measuredDates = new Set(
-    all<{ run_date: string }>(
-      `SELECT DISTINCT r.run_date AS run_date
-         FROM answers a JOIN runs r ON r.id = a.run_id
-        WHERE a.status = 'ok' AND ${measuredRunsClause()}
-          AND r.run_date IN (${placeholders})${realClause}`,
-      realParams
-    ).map((r) => r.run_date)
-  );
   const measuredDays = measuredDates.size;
 
   // Tabs are built from this, so it deliberately ignores the current filter —
@@ -317,18 +377,17 @@ function describeDataset(
   providersWithData.sort(byCanonical);
   providersWithMeasuredData.sort(byCanonical);
 
+  // Narrower than `measuredRunsClause()` on purpose: this is the boundary of genuine
+  // DAILY collection, so a backfilled date — real answers, simulated date — is not it.
   const live = get<{ run_date: string }>(
     `SELECT MIN(run_date) AS run_date FROM runs r
-      WHERE r.run_date IN (${placeholders}) AND ${measuredRunsClause()}`,
+      WHERE r.run_date IN (${placeholders}) AND r.trigger IN ('scheduled', 'manual')`,
     dates
   );
 
   return {
     runDays: dates.length,
-    deltaWindowDays: priorWindow.length,
-    // The baseline is illustrative when not one day behind the latest was measured.
-    deltaBaselineIsIllustrative:
-      priorWindow.length > 0 && !priorWindow.some((d) => measuredDates.has(d)),
+    ...basis,
     providersWithData,
     providersWithMeasuredData,
     measuredDays,
@@ -433,13 +492,17 @@ export function getSignals(days = 14): DigestSignal[] {
   const self = overview.self;
   if (!self) return signals;
 
-  if (Math.abs(self.delta7) >= ALERT_THRESHOLD_PTS) {
+  // No comparable measured day means there is no movement to alert on. Silence is
+  // the right signal: firing on a change computed against filler would train the
+  // channel to ignore the alert that matters.
+  const deltaPhrase = deltaComparisonPhrase(overview.dataset.deltaGapDays);
+  if (deltaPhrase && Math.abs(self.delta7) >= ALERT_THRESHOLD_PTS) {
     const dir = self.delta7 > 0 ? 'up' : 'down';
     signals.push({
       kind: 'delta',
       text:
         `${self.brand} visibility is ${dir} ${Math.abs(self.delta7).toFixed(1)} pts ` +
-        `${deltaWindowPhrase(overview.dataset.deltaWindowDays, overview.dataset.deltaBaselineIsIllustrative)} (now ${self.visibility.toFixed(1)}%).`,
+        `${deltaPhrase} (now ${self.visibility.toFixed(1)}%).`,
     });
   }
 
@@ -453,7 +516,10 @@ export function getSignals(days = 14): DigestSignal[] {
         kind: 'overtake',
         // Only the current gap is computed here. "Closest it has been this window"
         // would be a claim about history that nothing in this function measures.
-        text: `${ahead.brand} is ${gap.toFixed(1)} pts ahead of you on the latest run day.`,
+        text:
+          gap === 0
+            ? `${ahead.brand} is level with you on ${overview.dataset.headlineDate}.`
+            : `${ahead.brand} is ${gap.toFixed(1)} pts ahead of you on ${overview.dataset.headlineDate}.`,
       });
     }
   }
@@ -462,7 +528,11 @@ export function getSignals(days = 14): DigestSignal[] {
     if (round(self.visibility - behind.visibility) <= 3) {
       signals.push({
         kind: 'overtake',
-        text: `${behind.brand} is ${round(self.visibility - behind.visibility).toFixed(1)} pts behind you on the latest run day.`,
+        // A zero gap read as "0.0 pts behind you", which is a tie described as a lead.
+        text:
+          round(self.visibility - behind.visibility) === 0
+            ? `${behind.brand} is level with you on ${overview.dataset.headlineDate}.`
+            : `${behind.brand} is ${round(self.visibility - behind.visibility).toFixed(1)} pts behind you on ${overview.dataset.headlineDate}.`,
       });
     }
   }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { deltaWindowPhrase } from '@/lib/labels';
+import { deltaComparisonPhrase, headlineBasisPhrase } from '@/lib/labels';
 import type { OverviewResponse } from '@/lib/types';
 import { Card, Delta, FieldLabel, Skeleton } from './ui';
 
@@ -75,10 +75,13 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
   const rank = data.scoreboard.findIndex((row) => row.isSelf) + 1;
   const { ok, total } = self.coverageToday;
   const failed = total - ok;
-  // The window the delta actually averaged over, which is not always seven days —
-  // and whether anything in it was measured.
-  const deltaDays = data.dataset.deltaWindowDays;
-  const deltaPhrase = deltaWindowPhrase(deltaDays, data.dataset.deltaBaselineIsIllustrative);
+  // Null unless there are two measured days AND the headline is current — see
+  // `deltaComparisonDate` in DatasetShape. The card shows what the figure IS
+  // rather than a change it cannot support.
+  const deltaPhrase = deltaComparisonPhrase(data.dataset.deltaGapDays);
+  // Non-null only when the headline is NOT the newest day, which is the case
+  // worth stamping.
+  const basis = headlineBasisPhrase(data.dataset);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -86,10 +89,10 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
         label="Visibility"
         value={`${self.visibility.toFixed(0)}%`}
         footer={
-          // With no prior day the phrase stands alone: a signed change against
-          // nothing is not a change worth printing.
-          deltaDays <= 0 ? (
-            deltaPhrase
+          // With nothing measured to compare against, the footer carries the basis
+          // instead. A signed change against a day nobody collected is not a change.
+          deltaPhrase === null ? (
+            (basis ?? 'first measured day')
           ) : (
             <>
               <Delta value={self.delta7} suffix=" pts" /> {deltaPhrase}

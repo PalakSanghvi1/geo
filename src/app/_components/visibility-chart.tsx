@@ -123,6 +123,20 @@ export function VisibilityChart({
   const caption = dataset ? datasetCaption(dataset) : null;
   const illustrative = dataset ? isMostlyIllustrative(dataset) : false;
 
+  /*
+   * The stat cards and the scoreboard read from the newest MEASURED day, while the
+   * line runs to the newest day of any kind. Without a marker those disagree on
+   * screen with no explanation — the end label says 63% and the table says 58%.
+   * Marking the headline day ties the two together and shows that everything to its
+   * right is filler. Drawn only when they differ; on a current dataset it is noise.
+   */
+  const headlineMark =
+    dataset && dataset.headlineDate && !dataset.headlineIsCurrent
+      ? rows.some((r) => r.date === dataset.headlineDate)
+        ? dataset.headlineDate
+        : null
+      : null;
+
   const toggle = (brand: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -231,6 +245,20 @@ export function VisibilityChart({
                 content={<ChartTooltip />}
                 cursor={{ stroke: HAIRLINE, strokeWidth: 1 }}
               />
+              {headlineMark ? (
+                <ReferenceLine
+                  x={headlineMark}
+                  stroke={INK_MUTED}
+                  strokeDasharray="4 3"
+                  label={{
+                    value: '← last measured',
+                    position: 'insideTopRight',
+                    fill: INK_MUTED,
+                    fontSize: 10,
+                    offset: 8,
+                  }}
+                />
+              ) : null}
               {liveFrom && rows.some((r) => r.date === liveFrom) ? (
                 <ReferenceLine
                   x={liveFrom}
