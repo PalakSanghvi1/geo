@@ -41,11 +41,18 @@ SQLite in WAL mode.
 npm install
 cp .env.example .env      # fill in the keys listed in that file
 npm run migrate           # create the SQLite schema
+npm run auth-migrate      # create better-auth's tables in the same database
 npm run seed              # brands, 15 base questions, generated variations
 npm run run-once          # one live run (add --limit 3 while testing)
 npm run dev               # dashboard at http://localhost:3100/geo
 npm run worker            # cron, Slack bot, and the run_requests poller
 ```
+
+Sign-in is magic-link, so `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` (the app's own
+base URL, `/geo` path included) belong in `.env` alongside the provider keys. No mail
+transport is wired up: in development the link is printed to the console, and in
+production auth refuses to send rather than logging a live sign-in token. Grant access
+with `npm run org-members -- --org "Lemma AI" someone@example.com`.
 
 The worker is the only process that executes a run. The dashboard button, the daily
 schedule and `/geo run` all insert a row into `run_requests`, which the worker polls —
@@ -98,4 +105,11 @@ filter reports a gap rather than a zero.
 
 ## Demo
 
-Two-minute walkthrough: **[link to be added]**
+Two-minute walkthrough: **https://youtu.be/m4MiQtj7N0s**
+
+## Participants
+
+- Palak.Sanghvi@gmail.com
+- Pranav.Sanghvi1@gmail.com
+- ThomasBamforth2210@gmail.com
+- CatDesouza77@gmail.com
