@@ -430,12 +430,14 @@ export async function createIssue(suggestion: Suggestion): Promise<string | null
       return null;
     }
 
-    run(`UPDATE suggestions SET linear_issue_id = ? WHERE id = ?`, [issue.id, suggestion.id]);
-    log(
-      'linear',
-      `suggestion #${suggestion.id} → issue ${issue.identifier ?? issue.id} on team ${team.name}`
-    );
-    return issue.id;
+    // Store the human identifier ("GEO-12") when Linear gives us one, falling back
+    // to the UUID. This column is rendered on the Suggestions page and quoted in
+    // Slack, and a bare UUID there is unreadable — the identifier is also what a
+    // person types to find the issue in Linear.
+    const reference = issue.identifier ?? issue.id;
+    run(`UPDATE suggestions SET linear_issue_id = ? WHERE id = ?`, [reference, suggestion.id]);
+    log('linear', `suggestion #${suggestion.id} → issue ${reference} on team ${team.name}`);
+    return reference;
   } catch (error) {
     logError('linear', `issue creation failed for suggestion #${suggestion.id}`, error);
     return null;
