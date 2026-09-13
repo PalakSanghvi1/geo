@@ -7,7 +7,7 @@
  * can be diagnosed in one command instead of by poking at SQLite.
  */
 import '../src/lib/env';
-import { all } from '../src/lib/db';
+import { all, get } from '../src/lib/db';
 import { getOverview, getSignals } from '../src/lib/metrics';
 
 function main() {
@@ -59,6 +59,42 @@ function main() {
   if (signals.length) {
     console.log('\n=== signals ===');
     for (const s of signals) console.log(`  [${s.kind}] ${s.text}`);
+  }
+
+  // Measured throughput of the newest run. Compare against
+  // (providers x concurrencyPerProvider) / avg latency — a large gap means calls are
+  // serialising somewhere rather than the providers being slow.
+  const rate = get<{ n: number; secs: number }>(
+    `SELECT COUNT(*) AS n,
+            CAST((julianday(MAX(created_at)) - julianday(MIN(created_at))) * 86400 AS INTEGER) AS secs
+       FROM answers WHERE run_id = (SELECT MAX(id) FROM runs)`
+  );
+  if (rate && rate.n > 1 && rate.secs > 0) {
+    console.log(
+      `\n=== throughput (newest run) ===\n` +
+        `  ${rate.n} answers in ${rate.secs}s = ${((rate.n / rate.secs) * 60).toFixed(1)}/min`
+    );
+  }
+
+  // Per-provider latency: the first thing to look at when a run is slower than the
+  // concurrency settings say it should be.
+  const latency = all<{ provider: string; n: number; avg_ms: number; p90_ms: number; max_ms: number }>(
+    `SELECT provider,
+            COUNT(*) AS n,
+            CAST(AVG(latency_ms) AS INTEGER) AS avg_ms,
+            CAST(MAX(latency_ms) AS INTEGER) AS max_ms,
+            CAST(AVG(latency_ms) AS INTEGER) AS p90_ms
+       FROM answers WHERE status = 'ok' AND latency_ms IS NOT NULL
+      GROUP BY provider ORDER BY avg_ms DESC`
+  );
+  if (latency.length) {
+    console.log('\n=== latency (ok answers) ===');
+    for (const l of latency) {
+      console.log(
+        `  ${l.provider.padEnd(10)} n=${String(l.n).padStart(4)}  ` +
+          `avg ${(l.avg_ms / 1000).toFixed(1)}s  max ${(l.max_ms / 1000).toFixed(1)}s`
+      );
+    }
   }
 
   const errors = all<{ provider: string; error: string; n: number }>(

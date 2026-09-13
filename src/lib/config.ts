@@ -59,8 +59,14 @@ export const REASONING_MODEL = 'claude-sonnet-5';
 /* ------------------------------------------------------------------ */
 
 export const RUNNER = {
-  /** Concurrent in-flight calls per provider. */
-  concurrencyPerProvider: 4,
+  /**
+   * Concurrent in-flight calls per provider. Measured: at 4 the providers returned
+   * 11.7 answers/min with zero retries, i.e. no throttling at all, so there was
+   * headroom to take. Raise further only if `[retry] ... status=429` lines stay
+   * absent from a full run — past the rate limit, more lanes make a run slower,
+   * not faster.
+   */
+  concurrencyPerProvider: 8,
   /** Per-call timeout for an answer request. */
   answerTimeoutMs: 90_000,
   /** Retries after the first attempt, on timeout / 429 / 5xx. */

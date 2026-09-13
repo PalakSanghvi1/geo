@@ -93,7 +93,16 @@ export async function callProvider(provider: ProviderId, prompt: string): Promis
       }
 
       if (!isRetryable(err) || attempt === RUNNER.maxRetries) break;
-      await sleep(RUNNER.backoffMs[Math.min(attempt, RUNNER.backoffMs.length - 1)]);
+
+      // Retries are the main hidden cost in a slow run: a throttled provider looks
+      // identical to a slow one from the outside. Say so out loud.
+      const base = RUNNER.backoffMs[Math.min(attempt, RUNNER.backoffMs.length - 1)];
+      const wait = Math.round(base * (0.5 + Math.random())); // jitter, so lanes desynchronise
+      console.warn(
+        `  [retry] ${provider} ${modelId} status=${statusOf(err) ?? 'net'} ` +
+          `attempt ${attempt + 1}/${RUNNER.maxRetries + 1} waiting ${wait}ms`
+      );
+      await sleep(wait);
     }
   }
 

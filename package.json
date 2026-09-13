@@ -17,6 +17,7 @@
     "verify-models": "tsx scripts/verify-models.ts",
     "smoke": "tsx scripts/smoke-providers.ts",
     "status": "tsx scripts/status.ts",
+    "reset-runs": "tsx scripts/reset-runs.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
