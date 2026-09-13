@@ -262,7 +262,7 @@ function ExtractionAccuracy() {
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-[15px] font-medium">Extraction accuracy</h2>
         <p className="text-[12px] text-ink-muted">
-          {data.answersScored} hand-labelled answers
+          {data.answersScored} labelled answers
           {data.extractionFailures === 0 ? ' · no extraction failures' : ` · ${data.extractionFailures} failed`}
           {stamp ? ` · scored ${stamp}` : ''}
         </p>
