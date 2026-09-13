@@ -143,6 +143,7 @@ const ISSUE_CREATE_MUTATION = `
 interface RawSuggestion {
   kind: string;
   text: string;
+  project?: string;
   rationale: string;
 }
 
@@ -176,13 +177,18 @@ const SUGGESTION_TOOL: Anthropic.Tool = {
               description:
                 'The query text to track (phrased as a real user would ask an AI assistant), or the competitor brand name.',
             },
+            project: {
+              type: 'string',
+              description:
+                'The exact name of the Linear project this came from, copied verbatim from the list.',
+            },
             rationale: {
               type: 'string',
               description:
-                'One sentence explaining the suggestion. MUST name the Linear project it came from.',
+                'One sentence explaining why that project makes this worth tracking. Do not restate the project name; it is captured separately.',
             },
           },
-          required: ['kind', 'text', 'rationale'],
+          required: ['kind', 'text', 'project', 'rationale'],
           additionalProperties: false,
         },
       },
@@ -350,8 +356,19 @@ export async function runLinearScan(): Promise<number> {
     for (const candidate of suggestions.slice(0, MAX_SUGGESTIONS)) {
       const kind = coerceKind(candidate.kind);
       const text = candidate.text.trim();
-      const rationale = candidate.rationale.trim();
-      if (!kind || !text || !rationale) {
+      /**
+       * Compose the stored rationale rather than trusting the model to format it.
+       *
+       * The Suggestions page parses "Linear project: <name> — <why>" to show which
+       * project a suggestion came from. Asking the model to merely "name the
+       * project" produced prose that never matched, so the project chip stayed
+       * empty on every row. The project is now its own field and the prefix is
+       * built here.
+       */
+      const why = candidate.rationale.trim();
+      const project = candidate.project?.trim();
+      const rationale = project ? `Linear project: ${project} — ${why}` : why;
+      if (!kind || !text || !why) {
         skipped += 1;
         continue;
       }
