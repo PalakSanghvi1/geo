@@ -79,6 +79,11 @@ Rules:
   possessives, plurals and the listed aliases. An alias match counts as the canonical brand.
 - A brand counts as mentioned only if the answer actually refers to the product or company.
   A word that merely resembles a brand name in ordinary prose does not count.
+- NEVER record a brand because it plausibly belongs in an answer like this one. The only
+  question is whether its name (or a listed alias) literally appears in the text. If you
+  cannot point to the characters, it is not a mention. Answers about this category often
+  omit well-known tools, and recording one that is absent shifts the reported rank of every
+  brand that follows it.
 - first_char_index is the offset of the FIRST time that brand is named in the answer text.
 - sentiment describes only what THIS answer says about THAT brand, not your own opinion.
   Recommended, praised, or presented as a best choice is 1. Listed or described factually is 0.
