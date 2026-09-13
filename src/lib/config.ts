@@ -120,19 +120,38 @@ export interface SeedBrand {
   name: string;
   isSelf?: boolean;
   aliases?: string[];
+  /**
+   * Registrable domains this brand owns, for marking a cited source as
+   * competitor-owned. Name matching alone cannot do this: LangSmith's docs live on
+   * `smith.langchain.com`, which contains neither "langsmith" nor anything else
+   * derivable from the brand name. Subdomains are covered by suffix matching.
+   */
+  domains?: string[];
 }
 
 export const SEED_BRANDS: SeedBrand[] = [
-  { name: 'Lemma', isSelf: true, aliases: ['uselemma', 'uselemma.ai', 'Lemma AI'] },
-  { name: 'Raindrop', aliases: ['Raindrop AI'] },
-  { name: 'LangSmith', aliases: ['Lang Smith', 'LangChain LangSmith'] },
-  { name: 'Langfuse', aliases: ['Lang Fuse'] },
-  { name: 'Braintrust', aliases: ['Braintrust Data', 'braintrust.dev'] },
-  { name: 'Arize', aliases: ['Arize AI', 'Phoenix', 'Arize Phoenix'] },
-  { name: 'Helicone', aliases: [] },
-  { name: 'Weights & Biases Weave', aliases: ['W&B', 'Weave', 'wandb', 'Weights and Biases'] },
-  { name: 'Galileo', aliases: ['Galileo AI', 'Rungalileo'] },
-  { name: 'Datadog', aliases: ['Datadog LLM Observability', 'DataDog'] },
+  { name: 'Lemma', isSelf: true, aliases: ['uselemma', 'uselemma.ai', 'Lemma AI'], domains: ['uselemma.ai'] },
+  { name: 'Raindrop', aliases: ['Raindrop AI'], domains: ['raindrop.ai'] },
+  {
+    name: 'LangSmith',
+    aliases: ['Lang Smith', 'LangChain LangSmith'],
+    domains: ['smith.langchain.com', 'langchain.com'],
+  },
+  { name: 'Langfuse', aliases: ['Lang Fuse'], domains: ['langfuse.com'] },
+  { name: 'Braintrust', aliases: ['Braintrust Data', 'braintrust.dev'], domains: ['braintrust.dev'] },
+  { name: 'Arize', aliases: ['Arize AI', 'Phoenix', 'Arize Phoenix'], domains: ['arize.com'] },
+  { name: 'Helicone', aliases: [], domains: ['helicone.ai'] },
+  {
+    name: 'Weights & Biases Weave',
+    aliases: ['W&B', 'Weave', 'wandb', 'Weights and Biases'],
+    domains: ['wandb.ai', 'wandb.com'],
+  },
+  { name: 'Galileo', aliases: ['Galileo AI', 'Rungalileo'], domains: ['galileo.ai', 'rungalileo.io'] },
+  {
+    name: 'Datadog',
+    aliases: ['Datadog LLM Observability', 'DataDog'],
+    domains: ['datadoghq.com', 'datadoghq.eu'],
+  },
 ];
 
 export interface SeedQuery {
