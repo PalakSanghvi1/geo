@@ -244,3 +244,19 @@ export interface SourceRow {
   isCompetitorOwned: boolean;
   urls: Array<{ url: string; count: number }>;
 }
+
+/** The extractor's measured accuracy, as committed by `npm run eval`. */
+export interface EvalSummary {
+  generatedAt: string | null;
+  extractionModel: string | null;
+  target: number | null;
+  answersScored: number;
+  answersLabelled: number;
+  extractionFailures: number;
+  precision: number | null;
+  recall: number | null;
+  f1: number | null;
+  positionAccuracy: number | null;
+  sentimentAgreement: number | null;
+  passed: boolean;
+}
