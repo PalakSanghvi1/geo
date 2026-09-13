@@ -52,12 +52,16 @@ body {
  * The small label above a value or a card's contents ("Visibility", "Run",
  * "Brand"…), and the column labels in every table.
  *
- * These were set as uppercase letter-spaced mono, which read as a decorative
- * kicker rule above the text rather than as a label. They are now plain small
- * muted text: the same information, without the band of capitals sitting over
- * every number. The class keeps its name because sixteen call sites use it.
+ * Do NOT name this after the text-decoration value that draws a rule above
+ * text. Tailwind ships a built-in utility under that exact name, so a custom
+ * class called the same thing compiled to two rules — ours and Tailwind's — and
+ * every label in the app was drawn with a literal line over it. The stray lines
+ * above "Visibility" and friends were that collision, not a design choice.
+ *
+ * Tailwind also scans comments for class names, so even writing that word here
+ * is enough to emit the rule again.
  */
-@utility overline {
+@utility field-label {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-ink-muted);

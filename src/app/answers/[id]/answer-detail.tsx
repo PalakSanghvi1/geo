@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
 import { PROJECT, SEED_BRANDS } from '@/lib/config';
 import type { AnswerDetailResponse, Citation, ProviderId } from '@/lib/types';
-import { Badge, Card, ErrorState, Overline, Skeleton, cx } from '@/app/_components/ui';
+import { Badge, Card, ErrorState, FieldLabel, Skeleton, cx } from '@/app/_components/ui';
 import { useAnswerDetail } from '@/app/_lib/fetcher';
 
 const PROVIDER_LABEL: Record<ProviderId, string> = {
@@ -136,7 +136,7 @@ function RailCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
       <div className="px-5 pt-3.5 pb-1">
-        <Overline>{title}</Overline>
+        <FieldLabel>{title}</FieldLabel>
       </div>
       <div className="px-5 pb-3.5">{children}</div>
     </Card>

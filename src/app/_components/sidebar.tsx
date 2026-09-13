@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { PROJECT } from '@/lib/config';
-import { cx, Overline } from './ui';
+import { cx, FieldLabel } from './ui';
 import { authClient, useSession } from '@/lib/auth-client';
 
 /* Inline 16px line icons — no icon dependency for five glyphs. */
@@ -99,7 +99,7 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto border-t border-hairline px-5 py-4">
-        <Overline>Project</Overline>
+        <FieldLabel>Project</FieldLabel>
         <p className="mt-1 text-sm font-medium">{PROJECT.name}</p>
         <p className="text-xs text-ink-muted">{PROJECT.domain}</p>
         <AccountFooter />

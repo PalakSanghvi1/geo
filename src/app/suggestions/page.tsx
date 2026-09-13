@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { Suggestion } from '@/lib/types';
 import { PageHeader } from '@/app/_components/filters';
-import { Badge, Button, Card, ErrorState, Overline, Skeleton } from '@/app/_components/ui';
+import { Badge, Button, Card, ErrorState, FieldLabel, Skeleton } from '@/app/_components/ui';
 import {
   pushSuggestionToLinear,
   resolveSuggestion,
@@ -184,7 +184,7 @@ function RailCard({ title, children }: { title: string; children: React.ReactNod
   return (
     <Card>
       <div className="px-4 pt-3.5 pb-1">
-        <Overline>{title}</Overline>
+        <FieldLabel>{title}</FieldLabel>
       </div>
       <div className="px-4 pb-3.5">{children}</div>
     </Card>

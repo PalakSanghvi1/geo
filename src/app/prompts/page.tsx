@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PageHeader, Segmented } from '@/app/_components/filters';
-import { Badge, Button, Card, EmptyState, ErrorBanner, ErrorState, METER_W, Meter, Overline, Skeleton, cx } from '@/app/_components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBanner, ErrorState, METER_W, Meter, FieldLabel, Skeleton, cx } from '@/app/_components/ui';
 import { usePrompts } from '@/app/_lib/fetcher';
 import type { PromptRow, ProviderId } from '@/lib/types';
 
@@ -72,19 +72,19 @@ function HeaderRow() {
   return (
     <thead>
       <tr className="border-b border-hairline">
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Prompt
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left whitespace-nowrap')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left whitespace-nowrap')}>
           Tag
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left whitespace-nowrap')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left whitespace-nowrap')}>
           Visibility
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left whitespace-nowrap')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left whitespace-nowrap')}>
           Top brands
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left whitespace-nowrap')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left whitespace-nowrap')}>
           Answers
         </th>
       </tr>
@@ -240,13 +240,13 @@ export default function PromptsPage() {
               <ErrorBanner message={prompts.error} onRetry={prompts.refresh} />
             ) : null}
 
-            <Overline>
+            <FieldLabel>
               {prompts.loading
                 ? 'Loading prompts'
                 : `${visible.length} base ${visible.length === 1 ? 'query' : 'queries'} · ${countPrompts(
                     visible
                   )} prompts`}
-            </Overline>
+            </FieldLabel>
 
             <Card>
               {!prompts.loading && visible.length === 0 ? (
