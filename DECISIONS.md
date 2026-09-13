@@ -358,3 +358,9 @@ Append, don't rewrite. One line each, newest at the bottom.
   login page nobody can get past, in front of the whole demo. The flag goes to
   `true` once the box has a domain, a certificate and a mail transport; until then
   the nginx basic auth is the protection.
+- **The stray rules above every label were a Tailwind class-name collision.** The
+  shared label style was defined as a custom utility whose name is also a built-in
+  Tailwind text-decoration utility, so the class compiled to two rules and every
+  label was drawn with a literal line above it. Renamed to `field-label`, in the
+  CSS and at all seventeen call sites. Removing the uppercase treatment earlier did
+  not touch this, because the line was never in our own CSS.

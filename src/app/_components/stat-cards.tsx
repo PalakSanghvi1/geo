@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { deltaWindowPhrase } from '@/lib/labels';
 import type { OverviewResponse } from '@/lib/types';
-import { Card, Delta, Overline, Skeleton } from './ui';
+import { Card, Delta, FieldLabel, Skeleton } from './ui';
 
 export function StatCard({
   label,
@@ -17,7 +17,7 @@ export function StatCard({
 }) {
   return (
     <Card className="px-5 py-4">
-      <Overline>{label}</Overline>
+      <FieldLabel>{label}</FieldLabel>
       <div className="numeric mt-2 text-[30px] leading-none font-semibold tracking-[-0.02em]">
         {value}
         {suffix ? <span className="text-ink-muted">{suffix}</span> : null}

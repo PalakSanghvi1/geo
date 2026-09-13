@@ -18,8 +18,8 @@ export function CardTitle({ children }: { children: ReactNode }) {
   return <h2 className="text-[15px] font-medium">{children}</h2>;
 }
 
-export function Overline({ children }: { children: ReactNode }) {
-  return <div className="overline">{children}</div>;
+export function FieldLabel({ children }: { children: ReactNode }) {
+  return <div className="field-label">{children}</div>;
 }
 
 export function Badge({
@@ -130,7 +130,7 @@ export function Skeleton({ className }: { className?: string }) {
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="flex flex-col items-start gap-2 px-5 py-8">
-      <Overline>Could not load</Overline>
+      <FieldLabel>Could not load</FieldLabel>
       <p className="max-w-xl text-sm text-ink-muted">{message}</p>
       {onRetry ? (
         <Button className="mt-1" onClick={onRetry}>
