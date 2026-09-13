@@ -302,3 +302,65 @@ Append, don't rewrite. One line each, newest at the bottom.
     accent-coloured text, which failed AA at the brand accent; focus-visible rings;
     `text-ink-faint` reserved for placeholders rather than real values.
   - Dead code removed: `CardHeader` and `ComingSoon` had no call sites left.
+
+## Auth (local dev) — Dev C
+
+- **Better Auth over Auth.js.** Auth.js v5 has been a beta for roughly three years,
+  is in maintenance mode, and has an open unfixed class of `basePath` bugs — which
+  is disqualifying for an app served at `basePath: '/geo'`. It also has no
+  better-sqlite3 adapter, so it would drag Drizzle into a deliberately ORM-free
+  codebase. Better Auth's peer range names Next 16, its docs handle the
+  `middleware` → `proxy` rename, and magic link plus organizations are first-party.
+- **`better-auth` peers `better-sqlite3@^12` and we pin 13.0.3**, so `npm install`
+  fails with `ERESOLVE` — and `deploy.sh` runs `npm ci`, which is equally strict.
+  Resolved with an `overrides` entry pointing better-auth at the version we already
+  run (`npm ls` confirms it dedupes to 13.0.3) rather than downgrading a native
+  module the whole pipeline depends on.
+- **When `baseURL` carries a path, better-auth ignores `basePath` entirely.** An
+  origin of `http://host/geo` with `basePath: '/api/auth'` silently mounts the
+  endpoints at `/geo/sign-in/...`, colliding with the app's own routes — every
+  request 404s. Both halves must go in `baseURL`:
+  `http://host/geo/api/auth`. Found by probing the handler directly; it is not in
+  the docs.
+- **Next strips the base path before a route handler sees the request**, so the
+  auth route re-adds it before better-auth routes the request. Without that, the
+  choice is between endpoints that match and emailed links that 404 — you cannot
+  have both from configuration alone.
+- **`src/proxy.ts`, not `middleware.ts`** — Next 16 renamed the convention and the
+  exported function. The matcher needs `'/'` listed explicitly: the usual catch-all
+  pattern does not match the index route, so without it the dashboard itself stayed
+  open while every other page correctly redirected.
+- **The proxy returns 401 JSON for `/api/*` and redirects only pages.** Redirecting
+  an API call produces a 307 to an HTML login page, which every dashboard fetch
+  would then fail to parse as JSON.
+- **The proxy is an optimistic cookie check, not the boundary.** Next's own docs say
+  so. `requireSession()` in `src/lib/session.ts` verifies against the database and is
+  applied to `POST /api/trigger` first, since that endpoint spends roughly $11 of
+  model calls per call.
+- **The magic link is printed to the server console in development and throws in
+  production.** Logging a working sign-in token into pm2's logs would hand a session
+  to anyone with shell access.
+- **Organizations exist as records before they exist as a boundary.** The
+  better-auth organization plugin creates `organization` / `member` / `invitation`
+  and adds an active-organization column to `session`, but enabling it scopes
+  nothing: no product query filters by organization yet. Membership is recorded,
+  not enforced — the enforcement is section 3.2 of the multi-tenancy plan.
+- **`scripts/org-members.ts` takes addresses as arguments and hardcodes none.**
+  This repo is public and a membership list is personal data.
+- **Adding someone who has never signed in is safe.** They get a `user` row with
+  `emailVerified = 0`; better-auth's magic link matches on email, so their first
+  sign-in lands on that row and keeps the membership. Verified: one user row after
+  sign-in, not two, with the role intact and the address then verified.
+- **Sign-in is opt-in per deployment (`AUTH_ENABLED`), defaulting to off.** Without
+  the flag, the first deploy after the auth merge would have locked everyone out of
+  the dashboard: pm2 runs with `NODE_ENV=production`, where `sendMagicLink` throws
+  on purpose because no mail transport exists, while the proxy gates every page. A
+  login page nobody can get past, in front of the whole demo. The flag goes to
+  `true` once the box has a domain, a certificate and a mail transport; until then
+  the nginx basic auth is the protection.
+- **The stray rules above every label were a Tailwind class-name collision.** The
+  shared label style was defined as a custom utility whose name is also a built-in
+  Tailwind text-decoration utility, so the class compiled to two rules and every
+  label was drawn with a literal line above it. Renamed to `field-label`, in the
+  CSS and at all seventeen call sites. Removing the uppercase treatment earlier did
+  not touch this, because the line was never in our own CSS.

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { PROJECT } from '@/lib/config';
-import { cx, Overline } from './ui';
+import { cx, FieldLabel } from './ui';
+import { authClient, useSession } from '@/lib/auth-client';
 
 /* Inline 16px line icons — no icon dependency for five glyphs. */
 const stroke = {
@@ -98,10 +99,41 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto border-t border-hairline px-5 py-4">
-        <Overline>Project</Overline>
+        <FieldLabel>Project</FieldLabel>
         <p className="mt-1 text-sm font-medium">{PROJECT.name}</p>
         <p className="text-xs text-ink-muted">{PROJECT.domain}</p>
+        <AccountFooter />
       </div>
     </aside>
+  );
+}
+
+/**
+ * Who is signed in, and the way out.
+ *
+ * Renders nothing until the session resolves, rather than flashing a signed-out
+ * state at someone who is signed in.
+ */
+function AccountFooter() {
+  const { data, isPending } = useSession();
+  if (isPending || !data?.user) return null;
+
+  return (
+    <div className="mt-3 border-t border-hairline pt-3">
+      <p className="truncate text-xs text-ink-muted" title={data.user.email}>
+        {data.user.email}
+      </p>
+      <button
+        type="button"
+        className="mt-1 text-xs text-ink-muted underline underline-offset-4 hover:text-ink"
+        onClick={() =>
+          authClient.signOut({
+            fetchOptions: { onSuccess: () => window.location.assign('/geo/login') },
+          })
+        }
+      >
+        Sign out
+      </button>
+    </div>
   );
 }

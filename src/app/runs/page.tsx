@@ -12,7 +12,7 @@ import {
   ErrorState,
   METER_W,
   Meter,
-  Overline,
+  FieldLabel,
   Skeleton,
   cx,
 } from '@/app/_components/ui';
@@ -68,7 +68,7 @@ function formatDuration(run: Run): string {
     : `${minutes}m ${seconds}s`;
 }
 
-/** 'Claude Sonnet 5' → 'Claude · Sonnet 5'; the overline utility does the casing. */
+/** 'Claude Sonnet 5' → 'Claude · Sonnet 5'. */
 function modelOverline(label: string): string {
   const space = label.indexOf(' ');
   return space === -1 ? label : `${label.slice(0, space)} · ${label.slice(space + 1)}`;
@@ -128,7 +128,7 @@ function HealthCard({ health }: { health: ProviderHealth }) {
   return (
     <Card className="flex items-center justify-between gap-4 px-5 py-4">
       <div className="min-w-0">
-        <Overline>{modelOverline(health.label)}</Overline>
+        <FieldLabel>{modelOverline(health.label)}</FieldLabel>
         <div className="mt-1.5 flex items-baseline gap-1.5">
           <span className="numeric text-[22px] leading-none font-semibold">{health.ok}</span>
           <span className="numeric text-[22px] leading-none text-ink-muted">/{health.total}</span>
@@ -203,7 +203,7 @@ function HeaderRow() {
     <thead>
       <tr className="border-b border-hairline">
         {['Run', 'Date', 'Trigger', 'Status', 'Coverage', 'Duration'].map((label) => (
-          <th key={label} scope="col" className={cx(CELL, 'overline text-left')}>
+          <th key={label} scope="col" className={cx(CELL, 'field-label text-left')}>
             {label}
           </th>
         ))}

@@ -67,7 +67,7 @@ function ChartTooltip({
   const rows = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
   return (
     <div className="rounded-card border border-hairline bg-card px-3 py-2 text-[12px] shadow-sm">
-      <div className="overline mb-1.5">{label ? formatDay(label) : ''}</div>
+      <div className="field-label mb-1.5">{label ? formatDay(label) : ''}</div>
       {rows.map((row) => (
         <div key={row.name} className="flex items-center gap-2 py-px">
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: row.color }} aria-hidden />

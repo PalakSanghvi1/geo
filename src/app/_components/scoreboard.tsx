@@ -16,22 +16,22 @@ function HeaderRow({ deltaWindowDays }: { deltaWindowDays: number }) {
   return (
     <thead>
       <tr className="border-b border-hairline">
-        <th scope="col" className={cx(CELL, 'overline w-10 text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label w-10 text-left')}>
           #
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Brand
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Visibility
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           {deltaColumnLabel(deltaWindowDays)}
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Position
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Sentiment
         </th>
       </tr>

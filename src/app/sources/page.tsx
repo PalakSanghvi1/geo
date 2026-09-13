@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader, RangeSelect, Segmented } from '@/app/_components/filters';
-import { Badge, Button, Card, EmptyState, ErrorBanner, ErrorState, METER_W, Meter, Overline, Skeleton, cx } from '@/app/_components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBanner, ErrorState, METER_W, Meter, FieldLabel, Skeleton, cx } from '@/app/_components/ui';
 import { useSources, type ProviderParam } from '@/app/_lib/fetcher';
 import type { SourceRow } from '@/lib/types';
 
@@ -57,13 +57,13 @@ function HeaderRow() {
   return (
     <thead>
       <tr className="border-b border-hairline">
-        <th scope="col" className={cx(CELL, 'overline text-left')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left')}>
           Domain
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left whitespace-nowrap')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left whitespace-nowrap')}>
           Citations
         </th>
-        <th scope="col" className={cx(CELL, 'overline text-left whitespace-nowrap')}>
+        <th scope="col" className={cx(CELL, 'field-label text-left whitespace-nowrap')}>
           Share
         </th>
       </tr>
@@ -290,13 +290,13 @@ export default function SourcesPage() {
               <ErrorBanner message={sources.error} onRetry={sources.refresh} />
             ) : null}
 
-            <Overline>
+            <FieldLabel>
               {sources.loading
                 ? 'Loading citations'
                 : `${rows.length} ${rows.length === 1 ? 'domain' : 'domains'} · ${total} ${
                     total === 1 ? 'citation' : 'citations'
                   }`}
-            </Overline>
+            </FieldLabel>
 
             <Card>
               {!sources.loading && rows.length === 0 ? (

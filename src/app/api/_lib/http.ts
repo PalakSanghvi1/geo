@@ -13,6 +13,7 @@
  *      "no rows" is always an empty array / null, never an error.
  */
 import { NextResponse } from 'next/server';
+import { UnauthorizedError } from '@/lib/session';
 import type { ProviderId } from '@/lib/types';
 
 export type ProviderFilter = ProviderId | 'all';
@@ -63,6 +64,7 @@ export function errorResponse(message: string, status: number): NextResponse<{ e
 
 /** Single catch-all translation from a thrown value to a JSON error response. */
 export function fail(err: unknown): NextResponse<{ error: string }> {
+  if (err instanceof UnauthorizedError) return errorResponse(err.message, 401);
   if (err instanceof BadRequestError) return errorResponse(err.message, 400);
   if (err instanceof NotFoundError) return errorResponse(err.message, 404);
   if (err instanceof ConflictError) return errorResponse(err.message, 409);
