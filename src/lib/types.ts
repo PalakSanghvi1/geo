@@ -153,6 +153,14 @@ export interface OverviewResponse {
   series: SeriesPoint[];
   scoreboard: ScoreboardRow[];
   coverage: CoveragePoint[];
+  /**
+   * How many prior run days `delta7` averaged over — 7 once a week has been
+   * collected, fewer before that. Surfaces label the delta from this rather
+   * than claiming seven days they do not have.
+   */
+  deltaWindowDays: number;
+  /** Providers with at least one scored answer in the window; drives the model tabs. */
+  providersWithData: ProviderId[];
   /** Headline numbers for the self brand, for the stat cards. */
   self: {
     brand: string;

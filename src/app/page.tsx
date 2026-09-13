@@ -1,19 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { providerLabel } from '@/lib/labels';
 import { PageHeader, RangeSelect, Segmented } from './_components/filters';
 import { Scoreboard } from './_components/scoreboard';
 import { StatRow } from './_components/stat-cards';
 import { Card, ErrorBanner, ErrorState } from './_components/ui';
 import { VisibilityChart } from './_components/visibility-chart';
 import { useOverview, useRuns, type ProviderParam } from './_lib/fetcher';
-
-const PROVIDERS: Array<{ value: ProviderParam; label: string }> = [
-  { value: 'all', label: 'All models' },
-  { value: 'anthropic', label: 'Claude' },
-  { value: 'openai', label: 'GPT' },
-  { value: 'gemini', label: 'Gemini' },
-];
 
 const RANGES = [
   { value: 7, label: 'Last 7 days' },
@@ -43,13 +37,30 @@ export default function OverviewPage() {
   const data = overview.data;
   const filterKey = `${provider}:${days}`;
 
+  /**
+   * Model tabs follow the data: a provider that collected nothing gets no tab,
+   * so the filter can no longer offer a selection that renders an empty chart.
+   * The last non-empty list is remembered because `data` is null while a filter
+   * change is in flight, and collapsing the tabs mid-click would take away the
+   * tab that was just pressed.
+   */
+  const seenProviders = useRef<string[]>([]);
+  if (data && data.providersWithData.length > 0) seenProviders.current = data.providersWithData;
+  const providerOptions: Array<{ value: ProviderParam; label: string }> = [
+    { value: 'all', label: 'All models' },
+    ...seenProviders.current.map((id) => ({
+      value: id as ProviderParam,
+      label: providerLabel(id),
+    })),
+  ];
+
   return (
     <>
       <PageHeader title="Overview">
         <Segmented
           label="Answer model"
           value={provider}
-          options={PROVIDERS}
+          options={providerOptions}
           onChange={setProvider}
         />
         <RangeSelect label="Date range" value={days} options={RANGES} onChange={setDays} />
@@ -76,7 +87,12 @@ export default function OverviewPage() {
               liveFrom={liveFrom}
               loading={overview.loading}
             />
-            <Scoreboard key={`scoreboard:${filterKey}`} rows={data?.scoreboard ?? []} loading={overview.loading} />
+            <Scoreboard
+              key={`scoreboard:${filterKey}`}
+              rows={data?.scoreboard ?? []}
+              deltaWindowDays={data?.deltaWindowDays ?? 0}
+              loading={overview.loading}
+            />
           </>
         )}
       </div>

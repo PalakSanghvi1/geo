@@ -22,6 +22,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Client, isFullPage } from '@notionhq/client';
 import type { BlockObjectRequest } from '@notionhq/client';
 import { PROJECT, PUBLIC_BASE_URL, REASONING_MODEL } from '../lib/config';
+import { deltaLabel, providerList } from '../lib/labels';
 import { getOverview, getSignals, getSources, recentDates } from '../lib/metrics';
 import type { DigestSignal } from '../lib/metrics';
 import type { OverviewResponse, ScoreboardRow, SourceRow } from '../lib/types';
@@ -295,7 +296,7 @@ export function buildTakeawaysPrompt(week: WeekAggregates): string {
     .map(
       (row, index) =>
         `${index + 1}. ${row.brand}${row.isSelf ? ' (us)' : ''} — visibility ${pct(row.visibility)}, ` +
-        `7-day delta ${row.delta7 >= 0 ? '+' : ''}${row.delta7.toFixed(1)} pts, ` +
+        `delta ${row.delta7 >= 0 ? '+' : ''}${row.delta7.toFixed(1)} pts ${deltaLabel(overview.deltaWindowDays)}, ` +
         `avg position ${positionText(row.avgPosition)}, sentiment ${sentimentText(row.sentiment)}`
     );
 
@@ -311,16 +312,16 @@ export function buildTakeawaysPrompt(week: WeekAggregates): string {
     PROJECT.context,
     '',
     'WHAT THIS REPORT MEASURES:',
-    'Every day we ask a fixed set of buyer questions to Claude, GPT and Gemini with live web',
+    `Every day we ask a fixed set of buyer questions to ${providerList(overview.providersWithData)} with live web`,
     'search, then extract every brand named in each answer. Visibility = the share of that day’s',
     'successful answers that mention a brand at least once. Position = the average order the brand',
     'is named in (1 = named first, lower is better). Sentiment = the average tone of the mentions,',
-    'on a -100..+100 scale. The "7-day delta" is the latest run day’s visibility minus the mean of',
-    'the seven run days before it, in percentage points.',
+    `on a -100..+100 scale. The delta is the latest run day’s visibility minus the mean of the`,
+    `${overview.deltaWindowDays} run day(s) before it, in percentage points.`,
     '',
     `WEEK ENDING ${week.weekEndingDate} (${windowLine}):`,
     self
-      ? `${self.brand} visibility ${pct(self.visibility)}, 7-day delta ${self.delta7 >= 0 ? '+' : ''}${self.delta7.toFixed(1)} pts, ` +
+      ? `${self.brand} visibility ${pct(self.visibility)}, delta ${self.delta7 >= 0 ? '+' : ''}${self.delta7.toFixed(1)} pts ${deltaLabel(overview.deltaWindowDays)}, ` +
         `avg position ${positionText(self.avgPosition)}, sentiment ${sentimentText(self.sentiment)}, ` +
         `coverage ${self.coverageToday.ok}/${self.coverageToday.total} answers on the latest run day.`
       : `No scored answers for ${PROJECT.name} in this window.`,
@@ -434,7 +435,7 @@ function headlineCallout(week: WeekAggregates): BlockObjectRequest {
 
   const rank = week.overview.scoreboard.findIndex((r) => r.isSelf) + 1;
   const detail =
-    ` ${signedPts(self.delta7)} WoW\n` +
+    ` ${signedPts(self.delta7)} ${deltaLabel(week.overview.deltaWindowDays)}\n` +
     `Rank ${rank || '—'} of ${week.overview.scoreboard.length} tracked brands · ` +
     `avg position ${positionText(self.avgPosition)} · ` +
     `sentiment ${sentimentText(self.sentiment)} · ` +
@@ -451,7 +452,10 @@ function headlineCallout(week: WeekAggregates): BlockObjectRequest {
   };
 }
 
-function scoreboardTable(scoreboard: ScoreboardRow[]): BlockObjectRequest {
+function scoreboardTable(
+  scoreboard: ScoreboardRow[],
+  deltaWindowDays: number
+): BlockObjectRequest {
   const header: BlockObjectRequest = {
     object: 'block',
     type: 'table_row',
@@ -459,7 +463,7 @@ function scoreboardTable(scoreboard: ScoreboardRow[]): BlockObjectRequest {
       cells: [
         rt('Brand'),
         rt('Visibility'),
-        rt('Δ vs 7-day avg'),
+        rt(`Δ ${deltaLabel(deltaWindowDays)}`),
         rt('Avg position'),
         rt('Sentiment'),
       ],
@@ -540,7 +544,7 @@ export function buildReportBlocks(week: WeekAggregates, takeaways: string[]): Bl
   /* 3. Competitor scoreboard. */
   blocks.push(heading('Competitor scoreboard'));
   if (overview.scoreboard.length > 0) {
-    blocks.push(scoreboardTable(overview.scoreboard));
+    blocks.push(scoreboardTable(overview.scoreboard, overview.deltaWindowDays));
   } else {
     blocks.push(paragraph('No brand has been mentioned in a collected answer yet.'));
   }

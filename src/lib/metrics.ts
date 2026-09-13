@@ -9,13 +9,17 @@
  *   Visibility(brand, day) = ok answers that day mentioning brand / all ok answers that day * 100
  *   Position(brand, day)   = AVG(position) over that brand's mentions that day (lower is better)
  *   Sentiment(brand, day)  = AVG(sentiment) * 100, so -100..+100
- *   delta7                 = latest day's visibility - mean of the 7 days before it
+ *   delta7                 = latest day's visibility - mean of the run days before it,
+ *                            at most 7 of them. Early on there are fewer, so the
+ *                            response reports `deltaWindowDays` and the surfaces
+ *                            label the delta with the window they actually have.
  *
  * Runs that only partly succeeded are handled by computing over ok answers only;
  * `coverage` reports what fraction of attempted calls landed so the UI can badge it.
  */
 import { all, get, parseJson } from './db';
 import { ALERT_THRESHOLD_PTS, NEW_COMPETITOR_MIN_ANSWERS } from './config';
+import { DELTA_WINDOW_MAX, deltaLabel } from './labels';
 import type {
   Citation,
   CoveragePoint,
@@ -122,6 +126,28 @@ function brandDays(dates: string[], provider: ProviderFilter): BrandDay[] {
   }));
 }
 
+/**
+ * Providers that produced at least one scored answer in the window.
+ *
+ * Deliberately ignores the provider filter: it drives the dashboard's model
+ * tabs, and narrowing it to the selected provider would collapse the tabs to
+ * the one already chosen. A provider with no answers gets no tab, so the filter
+ * can no longer offer a selection that renders an empty chart.
+ */
+function providersWithAnswers(dates: string[]): ProviderId[] {
+  if (dates.length === 0) return [];
+  const placeholders = dates.map(() => '?').join(',');
+  const rows = all<{ provider: ProviderId }>(
+    `SELECT DISTINCT a.provider AS provider
+       FROM answers a
+       JOIN runs r ON r.id = a.run_id
+      WHERE a.status = 'ok' AND r.run_date IN (${placeholders})
+      ORDER BY a.provider`,
+    dates
+  );
+  return rows.map((r) => r.provider);
+}
+
 function round(n: number, places = 1): number {
   const f = 10 ** places;
   return Math.round(n * f) / f;
@@ -155,7 +181,10 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
   }
 
   const latest = dates[dates.length - 1];
-  const priorWindow = dates.slice(Math.max(0, dates.length - 8), dates.length - 1);
+  const priorWindow = dates.slice(
+    Math.max(0, dates.length - (DELTA_WINDOW_MAX + 1)),
+    dates.length - 1
+  );
 
   const scoreboard: ScoreboardRow[] = [...brandNames]
     .map((brand) => {
@@ -196,6 +225,8 @@ export function getOverview(days = 14, provider: ProviderFilter = 'all'): Overvi
     series,
     scoreboard,
     coverage,
+    deltaWindowDays: priorWindow.length,
+    providersWithData: providersWithAnswers(dates),
     self: selfRow
       ? {
           brand: selfRow.brand,
@@ -301,7 +332,7 @@ export function getSignals(days = 14): DigestSignal[] {
     const dir = self.delta7 > 0 ? 'up' : 'down';
     signals.push({
       kind: 'delta',
-      text: `${self.brand} visibility is ${dir} ${Math.abs(self.delta7).toFixed(1)} pts vs the 7-day average (now ${self.visibility.toFixed(1)}%).`,
+      text: `${self.brand} visibility is ${dir} ${Math.abs(self.delta7).toFixed(1)} pts ${deltaLabel(overview.deltaWindowDays)} (now ${self.visibility.toFixed(1)}%).`,
     });
   }
 

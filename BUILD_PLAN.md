@@ -584,6 +584,11 @@ Everyone labels eval answers together ~13:45 if A is behind.
 
 ### Two-minute demo script (Dev B records; target 115 seconds)
 
+> **Superseded — record from [`docs/demo-script.md`](docs/demo-script.md).** The
+> script below assumes 8 run days and three providers. The deployed dataset has
+> two run days and two providers (Gemini ran out of quota), so narrating this
+> version would claim history that was never collected.
+
 1. (0:00) "AI answers are the new search results. This is GEO — it tracks how AI models talk about your brand. We're tracking Lemma, an AI-agent-observability startup, against 9 competitors." — Overview page: trend chart, scoreboard.
 2. (0:25) "Every day we run 45 real customer questions across Claude, GPT, and Gemini with live web search — here's an actual answer, with every brand mention extracted, positioned, and sentiment-scored, plus the sources the model cited." — Answer detail, then Sources.
 3. (0:50) "It's built for reliability: live run status, automatic retries, and if a provider dies mid-run we degrade to partial coverage instead of failing. We eval our extraction against a hand-labeled set — 9X% precision." — Runs page, eval numbers.

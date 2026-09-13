@@ -14,8 +14,9 @@
  */
 import { App, LogLevel } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
-import { PROJECT, PUBLIC_BASE_URL } from '../lib/config';
+import { ANSWER_MODELS, PROJECT, PUBLIC_BASE_URL } from '../lib/config';
 import { get, run } from '../lib/db';
+import { deltaLabel, providerList } from '../lib/labels';
 import { getOverview, getSignals, recentDates } from '../lib/metrics';
 import { log, logError } from '../worker/log';
 
@@ -93,7 +94,7 @@ export function buildStatusLine(): string {
   const coverageText =
     coverage.total > 0 ? `${coverage.ok}/${coverage.total} answers collected` : 'no answers today';
   return (
-    `*${self.brand}* — visibility ${pct(self.visibility)} (${signed(self.delta7)} vs 7-day avg), ` +
+    `*${self.brand}* — visibility ${pct(self.visibility)} (${signed(self.delta7)} ${deltaLabel(overview.deltaWindowDays)}), ` +
     `rank ${rank || '—'} of ${overview.scoreboard.length}, ` +
     `avg position ${self.avgPosition === null ? '—' : self.avgPosition.toFixed(1)}, ` +
     `sentiment ${self.sentiment > 0 ? '+' : ''}${self.sentiment}. ${coverageText}.`
@@ -124,7 +125,7 @@ export function buildRunCompleteBlocks(runId: number, requestedBy: string): Know
   const lines: string[] = [];
   if (self) {
     lines.push(
-      `*${self.brand}* visibility *${pct(self.visibility)}*  (${signed(self.delta7)} vs 7-day average)`
+      `*${self.brand}* visibility *${pct(self.visibility)}*  (${signed(self.delta7)} ${deltaLabel(overview.deltaWindowDays)})`
     );
     const movers = overview.scoreboard
       .filter((r) => !r.isSelf)
@@ -225,12 +226,12 @@ function buildDigestBlocks(date?: string): KnownBlock[] {
     },
   ];
 
-  // 1. Headline: visibility and the delta against the 7-day average.
+  // 1. Headline: visibility and the delta against the prior run days collected.
   if (self) {
     const rank = overview.scoreboard.findIndex((r) => r.isSelf) + 1;
     blocks.push(
       section(
-        `*Visibility ${pct(self.visibility)}*  ${signed(self.delta7)} vs 7-day average\n` +
+        `*Visibility ${pct(self.visibility)}*  ${signed(self.delta7)} ${deltaLabel(overview.deltaWindowDays)}\n` +
           `Rank *${rank || '—'}* of ${overview.scoreboard.length} tracked brands · ` +
           `avg position ${self.avgPosition === null ? '—' : self.avgPosition.toFixed(1)} · ` +
           `sentiment ${self.sentiment > 0 ? '+' : ''}${self.sentiment}`
@@ -437,7 +438,11 @@ export async function notifyRunFailed(requestedBy: string, reason: string): Prom
 const HELP = [
   '*GEO commands*',
   '`/geo ping` — check the bot is alive',
-  '`/geo run [note]` — queue a fresh run across Claude, GPT and Gemini',
+  // Named from the configured models rather than a fixed list, so removing a
+  // provider from ANSWER_MODELS cannot leave the help promising it.
+  `\`/geo run [note]\` — queue a fresh run across ${providerList([
+    ...new Set(ANSWER_MODELS.map((m) => m.provider)),
+  ])}`,
   '`/geo status` — today’s visibility numbers',
 ].join('\n');
 

@@ -118,7 +118,9 @@ function HealthCard({ health }: { health: ProviderHealth }) {
           <span className="numeric text-[22px] leading-none font-semibold">{health.ok}</span>
           <span className="numeric text-[22px] leading-none text-ink-muted">/{health.total}</span>
           <span className="text-[13px] text-ink-muted">
-            {degraded ? `${health.failed} retrying` : 'answers'}
+            {/* "retrying" would describe work in flight; retries happen inside the
+                call, so by the time a row exists these are simply failures. */}
+            {degraded ? `${health.failed} failed` : 'answers'}
           </span>
         </div>
       </div>

@@ -116,6 +116,14 @@ export function VisibilityChart({
     return out;
   }, [rows]);
 
+  /**
+   * The boundary line is only drawn when `liveFrom` lands on a plotted date,
+   * and only says something when a backfilled date precedes it. The caption
+   * must not reference a line that isn't on screen.
+   */
+  const boundaryIndex = liveFrom ? rows.findIndex((r) => r.date === liveFrom) : -1;
+  const showsBoundary = boundaryIndex > 0;
+
   const toggle = (brand: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -148,9 +156,24 @@ export function VisibilityChart({
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-1">
-        <CardTitle>
-          Visibility <span className="text-ink-muted">— % of answers mentioning each brand</span>
-        </CardTitle>
+        <div className="min-w-0">
+          <CardTitle>
+            Visibility <span className="text-ink-muted">— % of answers mentioning each brand</span>
+          </CardTitle>
+          {/* The window is stated rather than implied. The date-range control offers
+              14 days; how many were actually collected is a different number, and a
+              line chart is exactly the shape that invites a reader to assume the two
+              agree. */}
+          {rows.length > 0 ? (
+            <p className="mt-1 text-[12px] text-ink-muted">
+              {rows.length} run day{rows.length === 1 ? '' : 's'} collected,{' '}
+              {formatDay(rows[0].date)} – {formatDay(rows[rows.length - 1].date)}
+              {showsBoundary
+                ? '\u00A0· dates before the dashed line are backfilled from real runs'
+                : ''}
+            </p>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
           {brands.map((b) => {
             const off = hidden.has(b.brand);
@@ -214,7 +237,7 @@ export function VisibilityChart({
                 content={<ChartTooltip />}
                 cursor={{ stroke: HAIRLINE, strokeWidth: 1 }}
               />
-              {liveFrom && rows.some((r) => r.date === liveFrom) ? (
+              {showsBoundary ? (
                 <ReferenceLine
                   x={liveFrom}
                   stroke={INK_FAINT}

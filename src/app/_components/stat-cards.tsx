@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { deltaLabel } from '@/lib/labels';
 import type { OverviewResponse } from '@/lib/types';
 import { Card, Delta, Overline, Skeleton } from './ui';
 
@@ -76,7 +77,7 @@ export function StatRow({ data }: { data: OverviewResponse | null }) {
         value={`${self.visibility.toFixed(0)}%`}
         footer={
           <>
-            <Delta value={self.delta7} suffix=" pts" /> vs 7-day avg
+            <Delta value={self.delta7} suffix=" pts" /> {deltaLabel(data.deltaWindowDays)}
           </>
         }
       />
